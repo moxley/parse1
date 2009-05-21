@@ -1,0 +1,6 @@
+TODO
+
+( ) Separate source from object from executables
+( ) Separate parser and scanner
+( ) Source buffer management
+( ) List errors, showing each line number and column
