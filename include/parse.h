@@ -84,7 +84,6 @@ void token_copy(struct t_token *dest, const struct t_token *source);
 void scanner_close(struct t_scanner *scanner);
 
 int scanner_getc(struct t_scanner *scanner);
-int scanner_ungetc(struct t_scanner *scanner);
 
 void scanner_print(struct t_scanner *scanner);
 int scanner_format(struct t_scanner *scanner);

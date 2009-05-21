@@ -64,11 +64,19 @@ int scanner_init(struct t_scanner *scanner, FILE *in) {
   scanner->reuse = 0;
   scanner->error = ERR_NONE;
   scanner->in = in;
-  token_init(&(scanner->token), TT_UNKNOWN);
+
   if (!scanner_cc_table_initialized) {
     scanner_build_cc_table();
     scanner_cc_table_initialized = 1;
   }
+
+  if (scanner_getc(scanner)) {
+    scanner->error = ERR_READ;
+    return 1;
+  }
+
+  token_init(&(scanner->token), TT_UNKNOWN);
+
   return 0;
 }
 
@@ -103,18 +111,14 @@ int scanner_getc(struct t_scanner *scanner) {
   }
   scanner->c_class = scanner_charclass(scanner->c);
 
-  util_escape_char(esc_char, scanner->c);
   /*
+  util_escape_char(esc_char, scanner->c);
   printf("scanner_getc() c: '%s', c_class: %s\n",
 	 esc_char,
 	 scanner_cc_names[scanner->c_class]);
   */
   
   return 0;
-}
-
-int scanner_ungetc(struct t_scanner *scanner) {
-  scanner->reuse = 1;
 }
 
 void scanner_print(struct t_scanner *scanner) {
@@ -145,9 +149,8 @@ int token_format(struct t_token *token) {
 }
 
 int scanner_token(struct t_scanner *scanner) {
-  if (scanner_getc(scanner)) return 1;
-  scanner_skip_whitespace(scanner);
-  
+  if (scanner_skip_whitespace(scanner)) return 1;
+
   if (scanner->c_class == CC_EOF) {
     scanner->token.type = TT_EOF;
     scanner->token.buf[0] = '\0';
@@ -180,7 +183,6 @@ int scanner_token_num(struct t_scanner *scanner) {
     if (token_append(scanner)) return 1;
     if (scanner_getc(scanner)) return 1;
     if (scanner->c_class != CC_DIGIT) {
-      scanner_ungetc(scanner);
       break;
     }
   }
@@ -193,7 +195,6 @@ int scanner_token_name(struct t_scanner *scanner) {
     if (token_append(scanner)) return 1;
     if (scanner_getc(scanner)) return 1;
     if (!isalpha(scanner->c)) {
-      scanner_ungetc(scanner);
       break;
     }
   }
@@ -220,7 +221,6 @@ int scanner_token_op(struct t_scanner *scanner) {
       invalid = 1;
     }
     else {
-      scanner_ungetc(scanner);
       break;
     }
   }
