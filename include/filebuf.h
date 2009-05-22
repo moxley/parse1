@@ -9,11 +9,10 @@ struct t_filebuf {
   FILE *in;
   int row;
   int col;
-  char *lines[];
-  int last_line;
+  char *line;
 };
 
-int filebuf_init(struct t_filebuf *filebuf);
+int filebuf_init(struct t_filebuf *filebuf, FILE *in);
 int filebuf_close(struct t_filebuf *filebuf);
 int filebuf_getc(struct t_filebuf *filebuf);
 int filebuf_getline(struct t_filebuf *filebuf);

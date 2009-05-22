@@ -123,7 +123,7 @@ int scanner_getc(struct t_scanner *scanner) {
 
 void scanner_print(struct t_scanner *scanner) {
   scanner_format(scanner);
-  printf(scanner->format);
+  puts(scanner->format);
 }
 
 int scanner_format(struct t_scanner *scanner) {

@@ -5,11 +5,12 @@ int filebuf_init(struct t_filebuf *filebuf, FILE *in) {
   filebuf->in = in;
   filebuf->row = -1;
   filebuf->col = -1;
-  filebuf->lines = malloc(LINES_ALLOC_SIZE + 1);
+  filebuf->line = (char *) 0;
 }
 
-void filebuf_close(struct t_filebuf *filebuf) {
-  free(filebuf->lines);
+int filebuf_close(struct t_filebuf *filebuf) {
+  free(filebuf->line);
+  return 0;
 }
 
 int filebuf_getline(struct t_filebuf *filebuf) {
