@@ -1,9 +1,12 @@
 CFLAGS = -Iinclude
 
-all: bin/print_lines bin/print_tokens bin/escape_string bin/list_errors
+all: bin/print_lines bin/print_chars bin/print_tokens bin/escape_string bin/list_errors
 
-bin/print_lines: lib/parse.o src/print_lines.c lib/filebuf.o
-	cc $(CFLAGS) -o bin/print_lines src/print_lines.c lib/parse.o
+bin/print_lines: src/print_lines.c lib/filebuf.o lib/parse.o
+	cc $(CFLAGS) -o bin/print_lines src/print_lines.c lib/filebuf.o lib/parse.o
+
+bin/print_chars: src/print_chars.c lib/filebuf.o lib/parse.o
+	cc $(CFLAGS) -o bin/print_chars src/print_chars.c lib/filebuf.o lib/parse.o
 
 bin/print_tokens: lib/parse.o src/print_tokens.c
 	cc $(CFLAGS) -o bin/print_tokens src/print_tokens.c lib/parse.o
