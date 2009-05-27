@@ -1,5 +1,6 @@
 TODO
 
+(X) Source buffer management
+( ) Use linebuf for fetching chars
 ( ) Separate parser and scanner
-( ) Source buffer management
 ( ) List errors, showing each line number and column
