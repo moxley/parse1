@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "parse.h"
+#include "scanner.h"
 #include "filebuf.h"
 
 int main(int argc, char *argv[]) {

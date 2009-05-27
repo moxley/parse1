@@ -31,6 +31,7 @@ int filebuf_print(struct t_filebuf *filebuf) {
 	 filebuf->row,
 	 filebuf->col,
 	 filebuf->line);
+  return 0;
 }
 
 int filebuf_getline(struct t_filebuf *filebuf) {

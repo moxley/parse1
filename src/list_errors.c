@@ -1,12 +1,10 @@
 #include <stdio.h>
-#include "parse.h"
+#include "parser.h"
 
 #define BUF_SIZE 30
 
 int main(void) {
   struct t_parser parser;
-  char buf[BUF_SIZE];
-  int result;
   int i;
 
   if (parser_init(&parser, stdin)) {

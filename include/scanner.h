@@ -80,6 +80,7 @@ int scanner_token(struct t_scanner *scanner);
 
 int scanner_token_num(struct t_scanner *scanner);
 int scanner_token_name(struct t_scanner *scanner);
+int scanner_token_op(struct t_scanner *scanner);
 int scanner_token_special(struct t_scanner *scanner, char special);
 
 int token_append(struct t_scanner *scanner);

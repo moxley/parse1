@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "parse.h"
+#include "scanner.h"
 
 #define INPUT_BUF_SIZE 30
 #define BUF_SIZE 60

@@ -1,4 +1,4 @@
-#include "parse.h"
+#include "parser.h"
 
 /* Keywords */
 char *parser_keywords[] = {
@@ -20,7 +20,6 @@ int parser_init(struct t_parser *parser, FILE *in) {
 
 int parser_count_errors(struct t_parser *parser) {
   int error_i = 0;
-  struct t_parse_error max_errors_error;
   
   do {
     if (scanner_token(&(parser->scanner))) return 1;

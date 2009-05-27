@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include "scanner.h"
 
 char scratch_buf[SCRATCH_BUF_SIZE];
@@ -90,7 +91,9 @@ void scanner_close(struct t_scanner *scanner) {
 }
 
 int scanner_getc(struct t_scanner *scanner) {
+  /*
   char esc_char[3];
+  */
   
   if (scanner->reuse) {
     scanner->reuse = 0;
@@ -123,6 +126,7 @@ int scanner_format(struct t_scanner *scanner) {
 	 esc_char,
 	 scanner_cc_names[scanner->c_class],
 	 scanner->token.format);
+  return 0;
 }
 
 int token_format(struct t_token *token) {
