@@ -19,7 +19,11 @@ int main(void) {
   }
   else {
     for (i=0; parser.errors[i]; i++) {
-      printf("Error %d: %s\n", i+1, parse_error_names[parser.errors[i]->token.error]);
+      printf("Error %d: %s. Line: %d, Col: %d\n",
+      	i+1,
+	parse_error_names[parser.errors[i]->token.error],
+        parser.errors[i]->token.row + 1,
+	parser.errors[i]->token.col + 1);
     }
   }
 

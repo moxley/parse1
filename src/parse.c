@@ -63,6 +63,9 @@ int scanner_init(struct t_scanner *scanner, FILE *in) {
   scanner->c_class = CC_UNKNOWN;
   scanner->reuse = 0;
   scanner->error = ERR_NONE;
+  scanner->row = 0;
+  scanner->col = -1;
+  scanner->found_eol = 0;
   scanner->in = in;
 
   if (!scanner_cc_table_initialized) {
@@ -75,17 +78,19 @@ int scanner_init(struct t_scanner *scanner, FILE *in) {
     return 1;
   }
 
-  token_init(&(scanner->token), TT_UNKNOWN);
+  scanner_init_token(scanner, TT_UNKNOWN);
 
   return 0;
 }
 
-void token_init(struct t_token *token, int type) {
-  token->buf_i = 0;
-  token->buf[0] = '\0';
-  token->type = type;
-  token->error = PERR_NONE;
-  token->format[0] = '\0';
+void scanner_init_token(struct t_scanner *scanner, int type) {
+  scanner->token.buf_i = 0;
+  scanner->token.buf[0] = '\0';
+  scanner->token.type = type;
+  scanner->token.error = PERR_NONE;
+  scanner->token.row = scanner->row;
+  scanner->token.col = scanner->col;
+  scanner->token.format[0] = '\0';
 }
 
 void token_copy(struct t_token *dest, const struct t_token *source) {
@@ -93,6 +98,8 @@ void token_copy(struct t_token *dest, const struct t_token *source) {
   strcpy(dest->buf, source->buf);
   dest->type = source->type;
   dest->error = source->error;
+  dest->row = source->row;
+  dest->col = source->col;
   strcpy(dest->format, source->format);
 }
 
@@ -108,8 +115,26 @@ int scanner_getc(struct t_scanner *scanner) {
   }
   else {
     scanner->c = getc(scanner->in);
+    scanner->col++;
+    if (scanner->c == '\r') {
+      if (scanner->found_eol) {
+        scanner->row++;
+	scanner->col = 0;
+      }
+      else {
+        scanner->found_eol = 1;
+      }
+    }
+    else if (scanner->c == '\n') {
+      scanner->found_eol = 1;
+    }
+    else if (scanner->found_eol) {
+      scanner->row++;
+      scanner->col = 0;
+      scanner->found_eol = 0;
+    }
+    scanner->c_class = scanner_charclass(scanner->c);
   }
-  scanner->c_class = scanner_charclass(scanner->c);
 
   /*
   util_escape_char(esc_char, scanner->c);
@@ -174,7 +199,7 @@ int scanner_token(struct t_scanner *scanner) {
 
 int scanner_token_num(struct t_scanner *scanner) {
   int i;
-  token_init(&(scanner->token), TT_NUM);
+  scanner_init_token(scanner, TT_NUM);
   for (i=0; 1; ++i) {
     if (i >= MAX_NUM_LEN) {
       scanner->token.type = TT_ERROR;
@@ -190,7 +215,7 @@ int scanner_token_num(struct t_scanner *scanner) {
 }
 
 int scanner_token_name(struct t_scanner *scanner) {
-  token_init(&(scanner->token), TT_NAME);
+  scanner_init_token(scanner, TT_NAME);
   while (1) {
     if (token_append(scanner)) return 1;
     if (scanner_getc(scanner)) return 1;
@@ -203,13 +228,13 @@ int scanner_token_name(struct t_scanner *scanner) {
 
 int scanner_token_op(struct t_scanner *scanner) {
   if (scanner->c == '+') {
-    token_init(&(scanner->token), TT_PLUS);
+    scanner_init_token(scanner, TT_PLUS);
   }
   else if (scanner->c == '=') {
-    token_init(&(scanner->token), TT_EQUAL);
+    scanner_init_token(scanner, TT_EQUAL);
   }
   else {
-    token_init(&(scanner->token), TT_UNKNOWN);
+    scanner_init_token(scanner, TT_UNKNOWN);
     return 0;
   }
   int i;
@@ -358,7 +383,8 @@ int parser_count_errors(struct t_parser *parser) {
     if (parser->scanner.token.type == TT_ERROR) {
       parser->errors[error_i] = malloc(sizeof(struct t_parse_error));
       if (error_i == MAX_PARSE_ERRORS) {
-	token_init(&(parser->errors[MAX_PARSE_ERRORS]->token), TT_ERROR);
+	scanner_init_token(&(parser->scanner), TT_ERROR);
+	token_copy(&(parser->errors[MAX_PARSE_ERRORS]->token), &(parser->scanner.token));
 	parser->errors[MAX_PARSE_ERRORS]->token.error = PERR_MAX_ERRORS;
 	break;
       }

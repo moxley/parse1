@@ -51,6 +51,8 @@ struct t_token {
   char buf[TOKEN_BUF_SIZE];
   int buf_i;
   int error;
+  int row;
+  int col;
   char format[TOKEN_FORMAT_BUF_SIZE];
 };
 
@@ -60,6 +62,9 @@ struct t_scanner {
   int reuse;
   FILE *in;
   int error;
+  int row;
+  int col;
+  int found_eol;
   struct t_token token;
   char format[SCANNER_FORMAT_BUF_SIZE];
 };
@@ -79,7 +84,7 @@ struct t_parser {
 #define PARSER_ERR_MAX_ERRORS 1
 
 int scanner_init(struct t_scanner *scanner, FILE *in);
-void token_init(struct t_token *token, int type);
+void scanner_init_token(struct t_scanner *scanner, int type);
 void token_copy(struct t_token *dest, const struct t_token *source);
 void scanner_close(struct t_scanner *scanner);
 
