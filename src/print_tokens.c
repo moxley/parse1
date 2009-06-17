@@ -1,9 +1,8 @@
 #include <stdio.h>
-#include "parse.h"
+#include "scanner.h"
 
 int main(void) {
   struct t_scanner scanner;
-  int value;
 
   if (scanner_init(&scanner, stdin)) {
     fprintf(stderr, "Failed to initialize scanner\n");

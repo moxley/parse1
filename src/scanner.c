@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include "parse.h"
+#include <ctype.h>
+#include "scanner.h"
 
 char scratch_buf[SCRATCH_BUF_SIZE];
 
@@ -43,20 +44,9 @@ char * scanner_cc_names[] = {
   "CC_QUOTE"
 };
 
-/* Keywords */
-char *parser_keywords[] = {
-  "print",
-  (char *) 0
-};
-
 char *scanner_operators = "~!@%^&*-+=|?/";
 char *scanner_delimiters = "()[]{}.:";
 char *scanner_quotes = "\"'`";
-
-char *parser_error_names[] = {
-  "PARSER_ERR_NONE",
-  "PARSER_ERR_MAX_ERRORS"
-};
 
 int scanner_init(struct t_scanner *scanner, FILE *in) {
   scanner->c = '\0';
@@ -108,7 +98,9 @@ void scanner_close(struct t_scanner *scanner) {
 }
 
 int scanner_getc(struct t_scanner *scanner) {
+  /*
   char esc_char[3];
+  */
   
   if (scanner->reuse) {
     scanner->reuse = 0;
@@ -159,6 +151,7 @@ int scanner_format(struct t_scanner *scanner) {
 	 esc_char,
 	 scanner_cc_names[scanner->c_class],
 	 scanner->token.format);
+  return 0;
 }
 
 int token_format(struct t_token *token) {

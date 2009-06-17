@@ -1,5 +1,8 @@
-#ifndef parse_h
-#define parse_h
+#ifndef scanner_h
+#define scanner_h
+
+#include <stdio.h>
+#include <stdlib.h>
 
 #define ERR_NONE  0
 #define ERR_READ  1
@@ -44,8 +47,6 @@ extern char * scanner_cc_names[];
 
 #define MAX_NUM_LEN 4
 
-extern char *parser_keywords[];
-
 struct t_token {
   int type;
   char buf[TOKEN_BUF_SIZE];
@@ -69,20 +70,6 @@ struct t_scanner {
   char format[SCANNER_FORMAT_BUF_SIZE];
 };
 
-struct t_parse_error {
-  struct t_token token;
-};
-
-#define MAX_PARSE_ERRORS 10
-struct t_parser {
-  struct t_scanner scanner;
-  struct t_parse_error *errors[MAX_PARSE_ERRORS+2];
-  int error;
-};
-
-#define PARSER_ERR_NONE 0
-#define PARSER_ERR_MAX_ERRORS 1
-
 int scanner_init(struct t_scanner *scanner, FILE *in);
 void scanner_init_token(struct t_scanner *scanner, int type);
 void token_copy(struct t_token *dest, const struct t_token *source);
@@ -98,6 +85,7 @@ int scanner_token(struct t_scanner *scanner);
 
 int scanner_token_num(struct t_scanner *scanner);
 int scanner_token_name(struct t_scanner *scanner);
+int scanner_token_op(struct t_scanner *scanner);
 int scanner_token_special(struct t_scanner *scanner, char special);
 
 int token_append(struct t_scanner *scanner);
@@ -107,9 +95,5 @@ int scanner_charclass(int c);
 void scanner_build_cc_table();
 int util_escape_string(char *buf, int buf_size, const char *str);
 int util_escape_char(char *buf, char c);
-
-int parser_init(struct t_parser *parser, FILE *in);
-int parser_count_errors(struct t_parser *parser);
-int parser_close(struct t_parser *parser);
 
 #endif
