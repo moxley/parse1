@@ -26,7 +26,8 @@ int parser_count_errors(struct t_parser *parser) {
     if (parser->scanner.token.type == TT_ERROR) {
       parser->errors[error_i] = malloc(sizeof(struct t_parse_error));
       if (error_i == MAX_PARSE_ERRORS) {
-	token_init(&(parser->errors[MAX_PARSE_ERRORS]->token), TT_ERROR);
+	scanner_init_token(&(parser->scanner), TT_ERROR);
+	token_copy(&(parser->errors[MAX_PARSE_ERRORS]->token), &(parser->scanner.token));
 	parser->errors[MAX_PARSE_ERRORS]->token.error = PERR_MAX_ERRORS;
 	break;
       }
