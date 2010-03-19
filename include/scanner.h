@@ -25,23 +25,25 @@ extern char *parse_error_names[];
 
 #define TT_UNKNOWN 0
 #define TT_ERROR   1
-#define TT_EOF     2
-#define TT_NUM     3
-#define TT_NAME    4
-#define TT_EQUAL   5
-#define TT_PLUS    6
+#define TT_EOL     2
+#define TT_EOF     3
+#define TT_NUM     4
+#define TT_NAME    5
+#define TT_EQUAL   6
+#define TT_PLUS    7
 
 extern char *token_types[];
 
 /* Character classes */
 #define CC_UNKNOWN 0
-#define CC_EOF     1
-#define CC_SPACE   2
-#define CC_DIGIT   3
-#define CC_ALPHA  4
-#define CC_OP      5
-#define CC_DELIM   6
-#define CC_QUOTE   7
+#define CC_EOL     1
+#define CC_EOF     2
+#define CC_SPACE   3
+#define CC_DIGIT   4
+#define CC_ALPHA   5
+#define CC_OP      6
+#define CC_DELIM   7
+#define CC_QUOTE   8
 
 extern char * scanner_cc_names[];
 
@@ -65,6 +67,7 @@ struct t_scanner {
   int error;
   int row;
   int col;
+  int debug;
   int found_eol;
   struct t_token token;
   char format[SCANNER_FORMAT_BUF_SIZE];

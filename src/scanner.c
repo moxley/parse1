@@ -26,6 +26,7 @@ char *parse_error_names[] = {
 char *token_types[] = {
   "TT_UNKNOWN",
   "TT_ERROR",
+  "TT_EOL",
   "TT_EOF",
   "TT_NUM",
   "TT_NAME",
@@ -35,6 +36,7 @@ char *token_types[] = {
 
 char * scanner_cc_names[] = {
   "CC_UNKNOWN",
+  "CC_EOL",
   "CC_EOF",
   "CC_SPACE",
   "CC_DIGIT",
@@ -55,6 +57,7 @@ int scanner_init(struct t_scanner *scanner, FILE *in) {
   scanner->error = ERR_NONE;
   scanner->row = 0;
   scanner->col = -1;
+  scanner->debug = 0;
   scanner->found_eol = 0;
   scanner->in = in;
 
@@ -98,9 +101,7 @@ void scanner_close(struct t_scanner *scanner) {
 }
 
 int scanner_getc(struct t_scanner *scanner) {
-  /*
   char esc_char[3];
-  */
   
   if (scanner->reuse) {
     scanner->reuse = 0;
@@ -111,7 +112,7 @@ int scanner_getc(struct t_scanner *scanner) {
     if (scanner->c == '\r') {
       if (scanner->found_eol) {
         scanner->row++;
-	scanner->col = 0;
+        scanner->col = 0;
       }
       else {
         scanner->found_eol = 1;
@@ -128,12 +129,12 @@ int scanner_getc(struct t_scanner *scanner) {
     scanner->c_class = scanner_charclass(scanner->c);
   }
 
-  /*
-  util_escape_char(esc_char, scanner->c);
-  printf("scanner_getc() c: '%s', c_class: %s\n",
-	 esc_char,
-	 scanner_cc_names[scanner->c_class]);
-  */
+  if (scanner->debug >= 2) {
+    util_escape_char(esc_char, scanner->c);
+    printf("scanner_getc() c: '%s', c_class: %s\n",
+      esc_char,
+      scanner_cc_names[scanner->c_class]);
+  }
   
   return 0;
 }
@@ -147,10 +148,11 @@ int scanner_format(struct t_scanner *scanner) {
   char esc_char[3];
   token_format(&(scanner->token));
   util_escape_char(esc_char, scanner->c);
-  snprintf(scanner->format, SCANNER_FORMAT_BUF_SIZE, "<#scanner: {c: '%s', c_class: %s, token: %s}>\n",
+  snprintf(scanner->format, SCANNER_FORMAT_BUF_SIZE, "<#scanner: {token: %s, col: '%d', c: '%s', c_class: %s}>\n",
+	 scanner->token.format,
+	 scanner->col,
 	 esc_char,
-	 scanner_cc_names[scanner->c_class],
-	 scanner->token.format);
+	 scanner_cc_names[scanner->c_class]);
   return 0;
 }
 
@@ -159,7 +161,7 @@ int token_format(struct t_token *token) {
   util_escape_string(scratch_buf, SCRATCH_BUF_SIZE, token->buf);
   n = snprintf(token->format,
 	       TOKEN_FORMAT_BUF_SIZE,
-	       "<#token {type: %s, error: %s buf: '%s'}>",
+	       "<#token {type: %s, error: %s, buf: '%s'}>",
 	       token_types[token->type],
 	       parse_error_names[token->error],
 	       scratch_buf);
@@ -172,6 +174,12 @@ int scanner_token(struct t_scanner *scanner) {
   if (scanner->c_class == CC_EOF) {
     scanner->token.type = TT_EOF;
     scanner->token.buf[0] = '\0';
+  }
+  else if (scanner->c_class == CC_EOL) {
+    scanner->token.type = TT_EOL;
+    scanner->token.buf[0] = scanner->c;
+    scanner->token.buf[1] = '\0';
+	if (scanner_getc(scanner)) return 1;
   }
   else if (scanner->c_class == CC_DIGIT) {
     scanner_token_num(scanner);
@@ -186,6 +194,10 @@ int scanner_token(struct t_scanner *scanner) {
     scanner->token.type = TT_UNKNOWN;
     scanner->token.buf[0] = scanner->c;
     scanner->token.buf[1] = '\0';
+	if (scanner_getc(scanner)) return 1;
+  }
+  if (scanner->debug) {
+    scanner_print(scanner);
   }
   return 0;
 }
@@ -291,6 +303,9 @@ void scanner_build_cc_table() {
     else if (isalpha(i)) {
       scanner_cc_table[i] = CC_ALPHA;
     }
+	else if (i == '\r' || i == '\n') {
+      scanner_cc_table[i] = CC_EOL;
+	}
     else if (isspace(i)) {
       scanner_cc_table[i] = CC_SPACE;
     }

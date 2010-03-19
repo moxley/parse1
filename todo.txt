@@ -1,6 +1,8 @@
 TODO
 
+( ) print() function
 (X) Source buffer management
 ( ) Use linebuf for fetching chars
-( ) Separate parser and scanner
-( ) List errors, showing each line number and column
+(X) Separate parser and scanner
+(X) List errors, showing each line number and column
+

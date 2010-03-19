@@ -3,3 +3,5 @@ list_errors
 print_lines
 print_tokens
 print_chars
+exec
+

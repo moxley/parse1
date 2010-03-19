@@ -1,6 +1,12 @@
 CFLAGS = -Wall -Iinclude
 
-all: bin/print_lines bin/print_chars bin/print_tokens bin/escape_string bin/list_errors
+all: bin/print_lines bin/print_chars bin/print_tokens bin/escape_string bin/list_errors bin/exec
+
+bin/exec: src/exec.c lib/filebuf.o lib/scanner.o lib/parser.o
+	cc $(CFLAGS) -o bin/exec src/exec.c lib/filebuf.o lib/scanner.o lib/parser.o
+
+bin/list_errors: src/list_errors.c lib/scanner.o lib/parser.o
+	cc $(CFLAGS) -o bin/list_errors src/list_errors.c lib/scanner.o lib/parser.o
 
 bin/print_lines: src/print_lines.c lib/filebuf.o lib/scanner.o
 	cc $(CFLAGS) -o bin/print_lines src/print_lines.c lib/filebuf.o lib/scanner.o
@@ -13,9 +19,6 @@ bin/print_tokens: src/print_tokens.c lib/scanner.o
 
 bin/escape_string: src/escape_string.c lib/scanner.o
 	cc $(CFLAGS) -o bin/escape_string src/escape_string.c lib/scanner.o
-
-bin/list_errors: src/list_errors.c lib/scanner.o lib/parser.o
-	cc $(CFLAGS) -o bin/list_errors src/list_errors.c lib/scanner.o lib/parser.o
 
 lib/filebuf.o: src/filebuf.c include/filebuf.h
 	cc $(CFLAGS) -c -o lib/filebuf.o src/filebuf.c
