@@ -51,6 +51,8 @@ extern char * scanner_cc_names[];
 
 #define MAX_NUM_LEN 4
 
+extern struct t_indent indent;
+
 struct t_token {
   int type;
   char buf[TOKEN_BUF_SIZE];

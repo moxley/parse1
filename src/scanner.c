@@ -150,7 +150,7 @@ int scanner_format(struct t_scanner *scanner) {
   char esc_char[3];
   token_format(&(scanner->token));
   util_escape_char(esc_char, scanner->c);
-  snprintf(scanner->format, SCANNER_FORMAT_BUF_SIZE, "<#scanner: {token: %s, col: '%d', c: '%s', c_class: %s}>\n",
+  snprintf(scanner->format, SCANNER_FORMAT_BUF_SIZE, "<#scanner: {token: %s, col: '%d', c: '%s', c_class: %s}>",
 	 scanner->token.format,
 	 scanner->col,
 	 esc_char,
@@ -171,7 +171,6 @@ int token_format(struct t_token *token) {
 }
 
 int scanner_token(struct t_scanner *scanner) {
-  int type;
   
   if (scanner_skip_whitespace(scanner)) return 1;
 
