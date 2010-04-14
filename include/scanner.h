@@ -30,6 +30,8 @@ extern char *parse_error_names[];
 #define TT_NAME    4
 #define TT_EQUAL   5
 #define TT_PLUS    6
+#define TT_PARENL  7
+#define TT_PARENR  8
 
 extern char *token_types[];
 
@@ -38,7 +40,7 @@ extern char *token_types[];
 #define CC_EOF     1
 #define CC_SPACE   2
 #define CC_DIGIT   3
-#define CC_ALPHA  4
+#define CC_ALPHA   4
 #define CC_OP      5
 #define CC_DELIM   6
 #define CC_QUOTE   7
@@ -86,7 +88,7 @@ int scanner_token(struct t_scanner *scanner);
 int scanner_token_num(struct t_scanner *scanner);
 int scanner_token_name(struct t_scanner *scanner);
 int scanner_token_op(struct t_scanner *scanner);
-int scanner_token_special(struct t_scanner *scanner, char special);
+int scanner_token_delim(struct t_scanner *scanner);
 
 int token_append(struct t_scanner *scanner);
 int scanner_skip_whitespace(struct t_scanner *scanner);

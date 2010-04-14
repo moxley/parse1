@@ -17,6 +17,10 @@ struct t_parser {
   int error;
 };
 
+struct t_fcall {
+  char *name;
+};
+
 #define PARSER_ERR_NONE 0
 #define PARSER_ERR_MAX_ERRORS 1
 
