@@ -1,6 +1,9 @@
 CFLAGS = -Wall -Iinclude
 
-all: bin/print_lines bin/print_chars bin/print_tokens bin/escape_string bin/list_errors bin/exec
+all: bin/print_tree bin/print_lines bin/print_chars bin/print_tokens bin/escape_string bin/list_errors bin/exec
+
+bin/print_tree: lib/filebuf.o lib/scanner.o lib/parser.o
+	cc $(CFLAGS) -o bin/print_tree src/print_tree.c lib/filebuf.o lib/scanner.o lib/parser.o
 
 bin/exec: src/exec.c lib/filebuf.o lib/scanner.o lib/parser.o
 	cc $(CFLAGS) -o bin/exec src/exec.c lib/filebuf.o lib/scanner.o lib/parser.o

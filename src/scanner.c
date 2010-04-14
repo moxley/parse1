@@ -32,6 +32,8 @@ char *token_types[] = {
   "TT_NAME",
   "TT_EQUAL",
   "TT_PLUS",
+  "TT_PARENL",
+  "TT_PARENR"
 };
 
 char * scanner_cc_names[] = {
@@ -169,11 +171,12 @@ int token_format(struct t_token *token) {
 }
 
 int scanner_token(struct t_scanner *scanner) {
+  int type;
+  
   if (scanner_skip_whitespace(scanner)) return 1;
 
   if (scanner->c_class == CC_EOF) {
-    scanner->token.type = TT_EOF;
-    scanner->token.buf[0] = '\0';
+    scanner_init_token(scanner, TT_EOF);
   }
   else if (scanner->c_class == CC_EOL) {
     scanner->token.type = TT_EOL;
@@ -190,14 +193,16 @@ int scanner_token(struct t_scanner *scanner) {
   else if (scanner->c_class == CC_OP) {
     scanner_token_op(scanner);
   }
-  else {
-    scanner->token.type = TT_UNKNOWN;
-    scanner->token.buf[0] = scanner->c;
-    scanner->token.buf[1] = '\0';
-	if (scanner_getc(scanner)) return 1;
+  else if (scanner->c_class == CC_DELIM) {
+    scanner_token_delim(scanner);
   }
-  if (scanner->debug) {
-    scanner_print(scanner);
+  else {
+    scanner_init_token(scanner, TT_UNKNOWN);
+    if (token_append(scanner)) return 1;
+    if (scanner_getc(scanner)) return 1;
+    if (scanner->debug) {
+      scanner_print(scanner);
+	}
   }
   return 0;
 }
@@ -257,6 +262,24 @@ int scanner_token_op(struct t_scanner *scanner) {
   if (invalid) {
     scanner->token.type = TT_UNKNOWN;
   }
+  return 0;
+}
+
+int scanner_token_delim(struct t_scanner *scanner)
+{
+  int type = TT_UNKNOWN;
+  switch (scanner->c) {
+  case '(':
+    type = TT_PARENL;
+    break;
+  case ')':
+    type = TT_PARENR;
+    break;
+  }
+
+  scanner_init_token(scanner, type);
+  if (token_append(scanner)) return 1;
+  if (scanner_getc(scanner)) return 1;
   return 0;
 }
 

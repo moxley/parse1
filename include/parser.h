@@ -1,5 +1,5 @@
-#ifndef parse_h
-#define parse_h
+#ifndef parser_h
+#define parser_h
 
 #include "scanner.h"
 
@@ -17,11 +17,17 @@ struct t_parser {
   int error;
 };
 
+struct t_fcall {
+  char *name;
+};
+
 #define PARSER_ERR_NONE 0
 #define PARSER_ERR_MAX_ERRORS 1
 
 int parser_init(struct t_parser *parser, FILE *in);
 int parser_count_errors(struct t_parser *parser);
 int parser_close(struct t_parser *parser);
+int parser_p_fcall(struct t_parser *parser);
+int parser_printlast(struct t_parser *parser);
 
 #endif

@@ -50,3 +50,12 @@ int parser_close(struct t_parser *parser) {
   }
   return 0;
 }
+
+int parser_p_fcall(struct t_parser *parser) {
+	return 0;
+}
+
+int parser_printlast(struct t_parser *parser) {
+	return 0;
+}
+

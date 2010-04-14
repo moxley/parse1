@@ -4,4 +4,5 @@ print_lines
 print_tokens
 print_chars
 exec
+print_tree
 

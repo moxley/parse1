@@ -31,6 +31,8 @@ extern char *parse_error_names[];
 #define TT_NAME    5
 #define TT_EQUAL   6
 #define TT_PLUS    7
+#define TT_PARENL  8
+#define TT_PARENR  9
 
 extern char *token_types[];
 
@@ -89,7 +91,7 @@ int scanner_token(struct t_scanner *scanner);
 int scanner_token_num(struct t_scanner *scanner);
 int scanner_token_name(struct t_scanner *scanner);
 int scanner_token_op(struct t_scanner *scanner);
-int scanner_token_special(struct t_scanner *scanner, char special);
+int scanner_token_delim(struct t_scanner *scanner);
 
 int token_append(struct t_scanner *scanner);
 int scanner_skip_whitespace(struct t_scanner *scanner);
