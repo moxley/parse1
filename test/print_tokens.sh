@@ -1,3 +1,7 @@
 #!/bin/sh
 
-echo "11111222233 + 2 = abc" | ./bin/print_tokens
+./bin/print_tokens <<EOF
+11111222233 + 2 = abc
+a = 1 + 2
+EOF
+

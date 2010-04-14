@@ -1,4 +1,6 @@
 #!/bin/sh
 
-echo "line1
-line2" | ./bin/print_chars
+./bin/print_chars <<EOF
+line1
+line2
+EOF
