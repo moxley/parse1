@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <string.h>
 #include "parser.h"
 
 #define INDENT_BUF 80
@@ -21,6 +22,7 @@ struct t_expr noexpr;
 int parser_init(struct t_parser *parser, FILE *in) {
   noexpr.type = EXP_NONE;
   noexpr.fmt = &parser_none_fmt;
+  parser->first = NULL;
   parser->expr = &noexpr;
   parser->errors[0] = (struct t_parse_error *) 0;
   parser->error = PARSER_ERR_NONE;
@@ -54,10 +56,26 @@ int parser_count_errors(struct t_parser *parser) {
 
 int parser_close(struct t_parser *parser) {
   int i;
+  struct t_expr *expr;
+  struct t_expr *next;
+
+  /* Free the scanner */
   scanner_close(&(parser->scanner));
+
+  /* Free the parser errors */
   for (i=0; parser->errors[i]; i++) {
     free(parser->errors[i]);
   }
+
+  /* Free the expressions */
+  expr = parser->first;
+  i = 0;
+  while (expr) {
+	next = expr->next;
+	free(expr);
+	expr = next;
+  }
+
   return 0;
 }
 
@@ -68,6 +86,22 @@ int parser_format(struct t_parser *parser) {
 	parse_error_names[parser->error],
 	parser->expr->format,
     parser->scanner.format);
+  return 0;
+}
+
+/*
+ * Add an expression to the parse tree.
+ */
+int parser_addexpr(struct t_parser *parser, struct t_expr *expr) {
+  expr->next = NULL;
+  if (!parser->first) {
+	parser->first = expr;
+  }
+  else {
+    parser->expr->next = expr;
+  }
+  printf("Setting parser->expr to type=%d\n", expr->type);
+  parser->expr = expr;
   return 0;
 }
 
@@ -103,7 +137,45 @@ char * parser_fcall_fmt(struct t_expr *expr) {
 /*
  * Parse a function call
  */
-int parser_fcall_parse(struct t_parser *parser) {
-	return 0;
+struct t_fcall *parser_fcall_parse(struct t_parser *parser) {
+  struct t_token *token;
+  struct t_fcall *call;
+
+  parser_format(parser);
+
+  token = parser_token(parser);
+  if (!token) return NULL;
+  if (token->type != TT_NAME) {
+	  // TODO return ERROR expression
+	  fprintf(stderr, "(TODO) Syntax error. Expected function name. Got %s: '%s'\n", token_types[token->type], token->buf);
+	  return NULL;
+  }
+  call = malloc(sizeof(struct t_fcall));
+  if (parser_fcall_init(call)) return NULL;
+  strcpy(call->name, token->buf);
+  parser_addexpr(parser, (struct t_expr *) call);
+
+  token = parser_token(parser);
+  if (!token) return NULL;
+  if (token->type != TT_PARENL) {
+	fprintf(stderr, "(TODO) Syntax error: Expected function opening parenthese '('. Got %s: %s\n", token_types[token->type], token->buf);
+	return NULL;
+  }
+
+  token = parser_token(parser);
+  if (!token) return NULL;
+  if (token->type != TT_PARENR) {
+	fprintf(stderr, "(TODO) Syntax error: Expected function closing parenthese ')'\n");
+	return NULL;
+  }
+
+  return call;
+}
+
+struct t_token *parser_token(struct t_parser *parser) {
+  if (scanner_token(&parser->scanner)) {
+    return NULL;
+  }
+  return &parser->scanner.token;
 }
 

@@ -1,3 +1,4 @@
 #!/bin/sh
 
-echo 'func()' | ./bin/print_tree
+echo 'funcA()' | ./bin/print_tree
+
