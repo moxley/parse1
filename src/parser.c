@@ -176,3 +176,7 @@ struct t_fcall *parser_fcall_parse(struct t_parser *parser) {
 struct t_token *parser_next(struct t_parser *parser) {
   return scanner_next(&parser->scanner);
 }
+
+struct t_token *parser_token(struct t_parser *parser) {
+  return scanner_token(&parser->scanner);
+}

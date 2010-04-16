@@ -62,8 +62,9 @@ int scanner_init(struct t_scanner *scanner, FILE *in) {
   scanner->debug = 0;
   scanner->found_eol = 0;
   scanner->in = in;
-  scanner->token = malloc(sizeof(struct t_token));
-
+  scanner->token = NULL;
+  scanner->first = NULL;
+  
   if (!scanner_cc_table_initialized) {
     scanner_build_cc_table();
     scanner_cc_table_initialized = 1;
@@ -74,19 +75,38 @@ int scanner_init(struct t_scanner *scanner, FILE *in) {
     return 1;
   }
 
-  scanner_init_token(scanner, TT_UNKNOWN);
+  _scanner_init_token(scanner, &scanner->unknown, TT_UNKNOWN);
 
   return 0;
 }
 
+void _scanner_init_token(struct t_scanner *scanner, struct t_token *token, int type) {
+  token->type = type;
+  token->buf_i = 0;
+  token->buf[0] = '\0';
+  token->error = PERR_NONE;
+  token->row = scanner->row;
+  token->col = scanner->col;
+  token->format[0] = '\0';
+  token->prev = NULL;
+  token->next = NULL;
+}
+
 struct t_token * scanner_init_token(struct t_scanner *scanner, int type) {
-  scanner->token->buf_i = 0;
-  scanner->token->buf[0] = '\0';
-  scanner->token->type = type;
-  scanner->token->error = PERR_NONE;
-  scanner->token->row = scanner->row;
-  scanner->token->col = scanner->col;
-  scanner->token->format[0] = '\0';
+  struct t_token *token;
+  
+  token = malloc(sizeof(struct t_token));
+  _scanner_init_token(scanner, token, type);
+
+  if (scanner->token) {
+    scanner->token->next = token;
+    token->prev = scanner->token;
+  }
+  else {
+    scanner->first = token;
+  }
+  
+  scanner->token = token;
   
   return scanner->token;
 }
@@ -102,8 +122,17 @@ void token_copy(struct t_token *dest, const struct t_token *source) {
 }
 
 void scanner_close(struct t_scanner *scanner) {
+  struct t_token *t;
+  struct t_token *prev;
+  
   fclose(scanner->in);
-  free(scanner->token);
+  
+  t = scanner->token;
+  while (t) {
+    prev = t->prev;
+    free(t);
+    t = prev;
+  }
 }
 
 int scanner_getc(struct t_scanner *scanner) {
@@ -145,11 +174,6 @@ int scanner_getc(struct t_scanner *scanner) {
   return 0;
 }
 
-void scanner_print(struct t_scanner *scanner) {
-  scanner_format(scanner);
-  puts(scanner->format);
-}
-
 int scanner_format(struct t_scanner *scanner) {
   char esc_char[3];
   struct t_token *token;
@@ -165,7 +189,12 @@ int scanner_format(struct t_scanner *scanner) {
   return 0;
 }
 
-int token_format(struct t_token *token) {
+void scanner_print(struct t_scanner *scanner) {
+  scanner_format(scanner);
+  puts(scanner->format);
+}
+
+struct t_token * token_format(struct t_token *token) {
   int n;
   util_escape_string(scratch_buf, SCRATCH_BUF_SIZE, token->buf);
   n = snprintf(token->format,
@@ -174,7 +203,7 @@ int token_format(struct t_token *token) {
            token_types[token->type],
            parse_error_names[token->error],
            scratch_buf);
-  return n > TOKEN_FORMAT_BUF_SIZE;
+  return n > TOKEN_FORMAT_BUF_SIZE ? NULL : token;
 }
 
 struct t_token * scanner_next(struct t_scanner *scanner) {
@@ -215,7 +244,12 @@ struct t_token * scanner_next(struct t_scanner *scanner) {
 }
 
 struct t_token * scanner_token(struct t_scanner *scanner) {
-  return scanner->token;
+  if (!scanner->token) {
+    return &scanner->unknown;
+  }
+  else {
+    return scanner->token;
+  }
 }
 
 struct t_token * scanner_parse_num(struct t_scanner *scanner) {
