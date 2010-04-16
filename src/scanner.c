@@ -64,6 +64,8 @@ int scanner_init(struct t_scanner *scanner, FILE *in) {
   scanner->in = in;
   scanner->token = NULL;
   scanner->first = NULL;
+  scanner->token_count = 0;
+  scanner->stack_size = 0;
   
   if (!scanner_cc_table_initialized) {
     scanner_build_cc_table();
@@ -107,6 +109,7 @@ struct t_token * scanner_init_token(struct t_scanner *scanner, int type) {
   }
   
   scanner->token = token;
+  scanner->token_count++;
   
   return scanner->token;
 }
@@ -123,15 +126,15 @@ void token_copy(struct t_token *dest, const struct t_token *source) {
 
 void scanner_close(struct t_scanner *scanner) {
   struct t_token *t;
-  struct t_token *prev;
+  struct t_token *next;
   
   fclose(scanner->in);
   
-  t = scanner->token;
+  t = scanner->first;
   while (t) {
-    prev = t->prev;
+    next = t->next;
     free(t);
-    t = prev;
+    t = next;
   }
 }
 
@@ -208,6 +211,16 @@ struct t_token * token_format(struct t_token *token) {
 
 struct t_token * scanner_next(struct t_scanner *scanner) {
   struct t_token *token;
+  int i;
+  
+  if (scanner->stack_size > 0) {
+    token = scanner->token;
+    for (i=1; i < scanner->stack_size; i++) {
+      token = token->prev;
+    }
+    scanner->stack_size--;
+    return token;
+  }
   
   if (scanner_skip_whitespace(scanner)) return NULL;
 
@@ -250,6 +263,13 @@ struct t_token * scanner_token(struct t_scanner *scanner) {
   else {
     return scanner->token;
   }
+}
+
+/*
+ * Push the token back into the stream.
+ */
+void scanner_push(struct t_scanner *scanner) {
+  scanner->stack_size++;
 }
 
 struct t_token * scanner_parse_num(struct t_scanner *scanner) {

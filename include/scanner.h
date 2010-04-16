@@ -75,8 +75,10 @@ struct t_scanner {
   int col;
   int debug;
   int found_eol;
-  struct t_token *first;
-  struct t_token *token;
+  int token_count;
+  int stack_size;
+  struct t_token *first;  // First of all tokens
+  struct t_token *token;  // Last of all tokens, and the current token
   struct t_token unknown;
   char format[SCANNER_FORMAT_BUF_SIZE];
 };
@@ -94,6 +96,7 @@ int scanner_format(struct t_scanner *scanner);
 struct t_token * token_format(struct t_token *token);
 
 struct t_token * scanner_next(struct t_scanner *scanner);
+void scanner_push(struct t_scanner *scanner);
 struct t_token * scanner_token(struct t_scanner *scanner);
 
 struct t_token * scanner_parse_num(struct t_scanner *scanner);

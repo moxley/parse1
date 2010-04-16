@@ -101,7 +101,6 @@ int parser_addexpr(struct t_parser *parser, struct t_expr *expr) {
   else {
     parser->expr->next = expr;
   }
-  printf("Setting parser->expr to type=%d\n", expr->type);
   parser->expr = expr;
   return 0;
 }
@@ -179,4 +178,11 @@ struct t_token *parser_next(struct t_parser *parser) {
 
 struct t_token *parser_token(struct t_parser *parser) {
   return scanner_token(&parser->scanner);
+}
+
+/*
+ * Push back a token onto the token stream.
+ */
+void parser_pushtoken(struct t_parser *parser) {
+  scanner_push(&parser->scanner);
 }
