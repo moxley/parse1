@@ -73,12 +73,12 @@ struct t_scanner {
   int col;
   int debug;
   int found_eol;
-  struct t_token token;
+  struct t_token * token;
   char format[SCANNER_FORMAT_BUF_SIZE];
 };
 
 int scanner_init(struct t_scanner *scanner, FILE *in);
-void scanner_init_token(struct t_scanner *scanner, int type);
+struct t_token * scanner_init_token(struct t_scanner *scanner, int type);
 void token_copy(struct t_token *dest, const struct t_token *source);
 void scanner_close(struct t_scanner *scanner);
 
@@ -88,12 +88,13 @@ void scanner_print(struct t_scanner *scanner);
 int scanner_format(struct t_scanner *scanner);
 int token_format(struct t_token *token);
 
-int scanner_token(struct t_scanner *scanner);
+struct t_token * scanner_next(struct t_scanner *scanner);
+struct t_token * scanner_token(struct t_scanner *scanner);
 
-int scanner_token_num(struct t_scanner *scanner);
-int scanner_token_name(struct t_scanner *scanner);
-int scanner_token_op(struct t_scanner *scanner);
-int scanner_token_delim(struct t_scanner *scanner);
+struct t_token * scanner_parse_num(struct t_scanner *scanner);
+struct t_token * scanner_parse_name(struct t_scanner *scanner);
+struct t_token * scanner_parse_op(struct t_scanner *scanner);
+struct t_token * scanner_parse_delim(struct t_scanner *scanner);
 
 int token_append(struct t_scanner *scanner);
 int scanner_skip_whitespace(struct t_scanner *scanner);

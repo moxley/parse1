@@ -32,23 +32,24 @@ int parser_init(struct t_parser *parser, FILE *in) {
 
 int parser_count_errors(struct t_parser *parser) {
   int error_i = 0;
+  struct t_token *token;
   
   do {
-    if (scanner_token(&(parser->scanner))) return 1;
-    if (parser->scanner.token.type == TT_ERROR) {
+    if ((token = scanner_next(&(parser->scanner))) == NULL) return 1;
+    if (token->type == TT_ERROR) {
       parser->errors[error_i] = malloc(sizeof(struct t_parse_error));
       if (error_i == MAX_PARSE_ERRORS) {
         scanner_init_token(&(parser->scanner), TT_ERROR);
-        token_copy(&(parser->errors[MAX_PARSE_ERRORS]->token), &(parser->scanner.token));
+        token_copy(&(parser->errors[MAX_PARSE_ERRORS]->token), token);
         parser->errors[MAX_PARSE_ERRORS]->token.error = PERR_MAX_ERRORS;
         break;
       }
       else {
-        token_copy(&(parser->errors[error_i]->token), &(parser->scanner.token));
+        token_copy(&(parser->errors[error_i]->token), token);
       }
       error_i++;
     }
-  } while(parser->scanner.token.type != TT_EOF);
+  } while(token->type != TT_EOF);
 
   parser->errors[error_i] = (struct t_parse_error *) 0;
   return parser->error;
@@ -71,9 +72,9 @@ int parser_close(struct t_parser *parser) {
   expr = parser->first;
   i = 0;
   while (expr) {
-	next = expr->next;
-	free(expr);
-	expr = next;
+    next = expr->next;
+    free(expr);
+    expr = next;
   }
 
   return 0;
@@ -83,8 +84,8 @@ int parser_format(struct t_parser *parser) {
   scanner_format(&(parser->scanner));
   parser->expr->fmt(parser->expr);
   snprintf(parser->format, PARSER_FORMAT_BUF_SIZE, "<#parser: {error: %s, expr: %s, scanner: %s}>",
-	parse_error_names[parser->error],
-	parser->expr->format,
+    parse_error_names[parser->error],
+    parser->expr->format,
     parser->scanner.format);
   return 0;
 }
@@ -95,7 +96,7 @@ int parser_format(struct t_parser *parser) {
 int parser_addexpr(struct t_parser *parser, struct t_expr *expr) {
   expr->next = NULL;
   if (!parser->first) {
-	parser->first = expr;
+    parser->first = expr;
   }
   else {
     parser->expr->next = expr;
@@ -130,7 +131,7 @@ char * parser_fcall_fmt(struct t_expr *expr) {
   call = (struct t_fcall *) expr;
   snprintf(expr->format, STATEMENT_FORMAT_BUF_SIZE, "<#expr: {type: function, name: %s, args: %d}>",
     call->name,
-	0);
+    0);
   return expr->format;
 }
 
@@ -143,39 +144,35 @@ struct t_fcall *parser_fcall_parse(struct t_parser *parser) {
 
   parser_format(parser);
 
-  token = parser_token(parser);
+  token = parser_next(parser);
   if (!token) return NULL;
   if (token->type != TT_NAME) {
-	  // TODO return ERROR expression
-	  fprintf(stderr, "(TODO) Syntax error. Expected function name. Got %s: '%s'\n", token_types[token->type], token->buf);
-	  return NULL;
+      // TODO return ERROR expression
+      fprintf(stderr, "(TODO) Syntax error. Expected function name. Got %s: '%s'\n", token_types[token->type], token->buf);
+      return NULL;
   }
   call = malloc(sizeof(struct t_fcall));
   if (parser_fcall_init(call)) return NULL;
   strcpy(call->name, token->buf);
   parser_addexpr(parser, (struct t_expr *) call);
 
-  token = parser_token(parser);
+  token = parser_next(parser);
   if (!token) return NULL;
   if (token->type != TT_PARENL) {
-	fprintf(stderr, "(TODO) Syntax error: Expected function opening parenthese '('. Got %s: %s\n", token_types[token->type], token->buf);
-	return NULL;
+    fprintf(stderr, "(TODO) Syntax error: Expected function opening parenthese '('. Got %s: %s\n", token_types[token->type], token->buf);
+    return NULL;
   }
 
-  token = parser_token(parser);
+  token = parser_next(parser);
   if (!token) return NULL;
   if (token->type != TT_PARENR) {
-	fprintf(stderr, "(TODO) Syntax error: Expected function closing parenthese ')'\n");
-	return NULL;
+    fprintf(stderr, "(TODO) Syntax error: Expected function closing parenthese ')'\n");
+    return NULL;
   }
 
   return call;
 }
 
-struct t_token *parser_token(struct t_parser *parser) {
-  if (scanner_token(&parser->scanner)) {
-    return NULL;
-  }
-  return &parser->scanner.token;
+struct t_token *parser_next(struct t_parser *parser) {
+  return scanner_next(&parser->scanner);
 }
-

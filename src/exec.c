@@ -25,15 +25,17 @@ int main(int argc, char** argv) {
 }
 
 int exec_run(struct t_scanner *scanner) {
+  struct t_token *token;
+  
   do {
-    if (scanner_token(scanner)) {
+    if ((token = scanner_next(scanner)) == NULL) {
       fprintf(stderr, "An error occurred during parsing: errno: %d\n", scanner->error);
       return 1;
     }
-	if (scanner->token.type == TT_NAME) {
-	  if (exec_func(scanner)) return 1;
-	}
-  } while (scanner->token.type != TT_EOF);
+    if (token->type == TT_NAME) {
+      if (exec_func(scanner)) return 1;
+    }
+  } while (token->type != TT_EOF);
   return 0;
 }
 
@@ -44,25 +46,25 @@ int exec_func(struct t_scanner *scanner) {
 }
 
 int parser_parse_func(struct t_scanner *scanner, struct t_function *func) {
-  printf("Function name: %s\n", scanner->token.buf);
-  if (scanner_token(scanner)) return 1;
+  printf("Function name: %s\n", scanner_token(scanner)->buf);
+  if (!scanner_next(scanner)) return 1;
   if (parser_parse_func_args(scanner, func)) return 1;
   return 0;
 }
 
 int parser_parse_func_args(struct t_scanner *scanner, struct t_function *func) {
   do {
-	if (scanner->token.type != TT_NUM) {
-	  if (scanner->token.type == TT_EOL) {
-		printf("EOL found. Scanning for next token\n");
-	    if (scanner_token(scanner)) return 1;
-	  }
-	  break;
-	}
-	else {
-		printf("Number: %s\n", scanner->token.buf);
-	    if (scanner_token(scanner)) return 1;
-	}
+    if (scanner_token(scanner)->type != TT_NUM) {
+      if (scanner_token(scanner)->type == TT_EOL) {
+        printf("EOL found. Scanning for next token\n");
+        if (!scanner_next(scanner)) return 1;
+      }
+      break;
+    }
+    else {
+        printf("Number: %s\n", scanner_token(scanner)->buf);
+        if (!scanner_next(scanner)) return 1;
+    }
   } while (1);
   return 0;
 }

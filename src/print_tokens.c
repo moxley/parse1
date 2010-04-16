@@ -3,6 +3,7 @@
 
 int main(void) {
   struct t_scanner scanner;
+  struct t_token *token;
 
   if (scanner_init(&scanner, stdin)) {
     fprintf(stderr, "Failed to initialize scanner\n");
@@ -10,14 +11,13 @@ int main(void) {
   }
 
   do {
-    if (scanner_token(&scanner)) {
+    if ((token = scanner_next(&scanner)) == NULL) {
       fprintf(stderr, "An error occurred during parsing: errno: %d\n", scanner.error);
       break;
     }
     scanner_print(&scanner);
-  } while (scanner.token.type != TT_EOF);
+  } while (token->type != TT_EOF);
   scanner_close(&scanner);
   printf("Done.\n");
   return 0;
 }
-

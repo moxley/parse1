@@ -61,7 +61,7 @@ int parser_init(struct t_parser *parser, FILE *in);
 int parser_count_errors(struct t_parser *parser);
 int parser_close(struct t_parser *parser);
 int parser_format(struct t_parser *parser);
-struct t_token * parser_token(struct t_parser *parser);
+struct t_token * parser_next(struct t_parser *parser);
 int parser_addexpr(struct t_parser *parser, struct t_expr *expr);
 
 char * parser_none_fmt(struct t_expr *expr);

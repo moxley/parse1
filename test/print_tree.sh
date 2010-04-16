@@ -1,4 +1,7 @@
 #!/bin/sh
 
-echo 'funcA()' | ./bin/print_tree
+./bin/print_tree <<EOF
+funcA()
+funcB()
+EOF
 

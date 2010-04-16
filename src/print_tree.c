@@ -15,25 +15,25 @@ int main(void) {
   }
 
   if (0) {
-	testprint(parser);
+    testprint(parser);
   }
   else {
     do {
-	  printf("Calling parser_fcall_parse().\n");
+      printf("Calling parser_fcall_parse().\n");
       if (!parser_fcall_parse(parser)) {
         fprintf(stderr, "An error occurred during parsing: errno: %d\n", parser->scanner.error);
         break;
       }
-	  printf("parser.expr.type: %d\n", parser->expr->type);
+      printf("parser.expr.type: %d\n", parser->expr->type);
       parser_fcall_fmt(parser->expr);
 
-	  token = parser_token(parser);
+      token = parser_next(parser);
       parser_format(parser);
-	  printf("%s\n", parser->format);
+      printf("%s\n", parser->format);
 
-	  if (token->type == TT_EOL) {
-		token = parser_token(parser);
-	  }
+      if (token->type == TT_EOL) {
+        token = parser_next(parser);
+      }
 
     } while (token->type != TT_EOF);
   }
