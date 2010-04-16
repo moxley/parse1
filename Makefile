@@ -1,4 +1,4 @@
-CFLAGS = -Wall -Iinclude
+CFLAGS = -Wall -Iinclude -g
 
 all: bin/print_tree bin/print_lines bin/print_chars bin/print_tokens bin/escape_string bin/list_errors bin/exec
 

@@ -33,7 +33,8 @@ char *token_types[] = {
   "TT_EQUAL",
   "TT_PLUS",
   "TT_PARENL",
-  "TT_PARENR"
+  "TT_PARENR",
+  "TT_COMMA"
 };
 
 char * scanner_cc_names[] = {
@@ -49,7 +50,7 @@ char * scanner_cc_names[] = {
 };
 
 char *scanner_operators = "~!@%^&*-+=|?/";
-char *scanner_delimiters = "()[]{}.:";
+char *scanner_delimiters = "()[]{}.:,";
 char *scanner_quotes = "\"'`";
 
 int scanner_init(struct t_scanner *scanner, FILE *in) {
@@ -89,7 +90,7 @@ void _scanner_init_token(struct t_scanner *scanner, struct t_token *token, int t
   token->error = PERR_NONE;
   token->row = scanner->row;
   token->col = scanner->col;
-  token->format[0] = '\0';
+  token->formatbuf[0] = '\0';
   token->prev = NULL;
   token->next = NULL;
 }
@@ -121,7 +122,7 @@ void token_copy(struct t_token *dest, const struct t_token *source) {
   dest->error = source->error;
   dest->row = source->row;
   dest->col = source->col;
-  strcpy(dest->format, source->format);
+  strcpy(dest->formatbuf, source->formatbuf);
 }
 
 void scanner_close(struct t_scanner *scanner) {
@@ -177,30 +178,30 @@ int scanner_getc(struct t_scanner *scanner) {
   return 0;
 }
 
-int scanner_format(struct t_scanner *scanner) {
+char * scanner_format(struct t_scanner *scanner) {
   char esc_char[3];
   struct t_token *token;
   
   token = scanner_token(scanner);
   token_format(token);
   util_escape_char(esc_char, scanner->c);
-  snprintf(scanner->format, SCANNER_FORMAT_BUF_SIZE, "<#scanner: {token: %s, col: '%d', c: '%s', c_class: %s}>",
-     token->format,
+  snprintf(scanner->formatbuf, SCANNER_FORMAT_BUF_SIZE, "<#scanner: {token: %s, col: '%d', c: '%s', c_class: %s}>",
+     token->formatbuf,
      scanner->col,
      esc_char,
      scanner_cc_names[scanner->c_class]);
-  return 0;
+  return scanner->formatbuf;
 }
 
 void scanner_print(struct t_scanner *scanner) {
   scanner_format(scanner);
-  puts(scanner->format);
+  puts(scanner->formatbuf);
 }
 
 struct t_token * token_format(struct t_token *token) {
   int n;
   util_escape_string(scratch_buf, SCRATCH_BUF_SIZE, token->buf);
-  n = snprintf(token->format,
+  n = snprintf(token->formatbuf,
            TOKEN_FORMAT_BUF_SIZE,
            "<#token {type: %s, error: %s, buf: '%s'}>",
            token_types[token->type],
@@ -347,6 +348,9 @@ struct t_token * scanner_parse_delim(struct t_scanner *scanner)
     break;
   case ')':
     type = TT_PARENR;
+    break;
+  case ',':
+    type = TT_COMMA;
     break;
   }
 

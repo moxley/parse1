@@ -1,8 +1,7 @@
 TODO
 
-( ) print() function
-(X) Source buffer management
+( ) Parse function calls
+  ( ) ExpressionID to expression functions
+  ( ) Change scanner to use pushback stream
+  ( ) Dynamic toString memory allocation
 ( ) Use linebuf for fetching chars
-(X) Separate parser and scanner
-(X) List errors, showing each line number and column
-

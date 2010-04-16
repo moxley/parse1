@@ -33,6 +33,7 @@ extern char *parse_error_names[];
 #define TT_PLUS    7
 #define TT_PARENL  8
 #define TT_PARENR  9
+#define TT_COMMA   10
 
 extern char *token_types[];
 
@@ -62,7 +63,7 @@ struct t_token {
   int col;
   struct t_token *prev;
   struct t_token *next;
-  char format[TOKEN_FORMAT_BUF_SIZE];
+  char formatbuf[TOKEN_FORMAT_BUF_SIZE];
 };
 
 struct t_scanner {
@@ -80,7 +81,7 @@ struct t_scanner {
   struct t_token *first;  // First of all tokens
   struct t_token *token;  // Last of all tokens, and the current token
   struct t_token unknown;
-  char format[SCANNER_FORMAT_BUF_SIZE];
+  char formatbuf[SCANNER_FORMAT_BUF_SIZE];
 };
 
 int scanner_init(struct t_scanner *scanner, FILE *in);
@@ -92,7 +93,7 @@ void scanner_close(struct t_scanner *scanner);
 int scanner_getc(struct t_scanner *scanner);
 
 void scanner_print(struct t_scanner *scanner);
-int scanner_format(struct t_scanner *scanner);
+char * scanner_format(struct t_scanner *scanner);
 struct t_token * token_format(struct t_token *token);
 
 struct t_token * scanner_next(struct t_scanner *scanner);
