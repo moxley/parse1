@@ -21,6 +21,7 @@ struct t_expr expression_types[] = {
   {EXP_NONE, "none", NULL, &parser_none_fmt, NULL, NULL},
   {EXP_NONE, "error", NULL, NULL, NULL, NULL},
   {EXP_NONE, "eof", NULL, NULL, NULL, NULL},
+  {EXP_NUM,  "num", &parser_num_init, &parser_num_fmt, &parser_num_parse, &parser_num_close},
   {EXP_FCALL, "fcall", &parser_fcall_init, &parser_fcall_fmt, &parser_fcall_parse, &parser_fcall_close}
 };
 int expr_types_size = sizeof(expression_types);
@@ -33,7 +34,7 @@ int parser_init(struct t_parser *parser, FILE *in) {
   noexpr.type = EXP_NONE;
   noexpr.format = &parser_none_fmt;
   parser->first = NULL;
-  parser->expr = &noexpr;
+  parser->stmt = &noexpr;
   parser->errors[0] = (struct t_parse_error *) 0;
   parser->error = PARSER_ERR_NONE;
   if (scanner_init(&(parser->scanner), in)) return 1;
@@ -67,9 +68,9 @@ int parser_count_errors(struct t_parser *parser) {
 
 int parser_close(struct t_parser *parser) {
   int i;
-  struct t_expr *expr;
+  struct t_expr *stmt;
   struct t_expr *next;
-
+  
   /* Free the scanner */
   scanner_close(&(parser->scanner));
 
@@ -78,23 +79,23 @@ int parser_close(struct t_parser *parser) {
     free(parser->errors[i]);
   }
 
-  /* Free the expressions */
-  expr = parser->first;
+  /* Free the statements */
+  stmt = parser->first;
   i = 0;
-  while (expr) {
-    next = expr->next;
-    parser_expr_destroy(expr);
-    free(expr);
-    expr = next;
+  while (stmt) {
+    next = stmt->next;
+    parser_expr_destroy(stmt);
+    free(stmt);
+    stmt = next;
   }
 
   return 0;
 }
 
 char * parser_format(struct t_parser *parser) {
-  snprintf(parser->formatbuf, PARSER_FORMAT_BUF_SIZE, "<#parser: {error: %s, expr: %s, scanner: %s}>",
+  snprintf(parser->formatbuf, PARSER_FORMAT_BUF_SIZE, "<#parser: {error: %s, stmt: %s, scanner: %s}>",
     parse_error_names[parser->error],
-    parser_expr_fmt(parser->expr),
+    parser_expr_fmt(parser->stmt),
     scanner_format(&(parser->scanner)));
   return parser->formatbuf;
 }
@@ -103,8 +104,14 @@ int parser_expr_destroy(struct t_expr *expr) {
   if (expression_types[expr->type].destroy) {
     expression_types[expr->type].destroy(expr);
   }
-  if (expr->detail) free(expr->detail);
-  if (expr->formatbuf) free(expr->formatbuf);
+  if (expr->detail) {
+    free(expr->detail);
+    expr->detail = NULL;
+  }
+  if (expr->formatbuf) {
+    free(expr->formatbuf);
+    expr->formatbuf = NULL;
+  }
   return 0;
 }
 
@@ -131,43 +138,38 @@ int parser_expr_init(struct t_expr *expr, int type) {
 }
 
 /*
- * Add an expression to the parse tree.
+ * Add a statement to the parse tree.
  */
-int parser_addexpr(struct t_parser *parser, struct t_expr *expr) {
-  expr->next = NULL;
+int parser_addstmt(struct t_parser *parser, struct t_expr *stmt) {
+  stmt->next = NULL;
   if (!parser->first) {
-    parser->first = expr;
+    parser->first = stmt;
   }
   else {
-    parser->expr->next = expr;
+    parser->stmt->next = stmt;
   }
-  parser->expr = expr;
+  parser->stmt = stmt;
+  
   return 0;
 }
 
-struct t_expr * parser_expr(struct t_parser *parser) {
-  return parser->expr;
+//struct t_expr * parser_expr(struct t_parser *parser) {
+//  return parser->expr;
+//}
+
+struct t_token *parser_next(struct t_parser *parser) {
+  return scanner_next(&parser->scanner);
 }
 
-char * parser_none_fmt(struct t_expr *expr) {
-  assert(EXP_NONE == expr->type);
-  snprintf(expr->formatbuf, STATEMENT_FORMAT_BUF_SIZE, "<#expr: {type: none}>");
-  return expr->formatbuf;
+struct t_token *parser_token(struct t_parser *parser) {
+  return scanner_token(&parser->scanner);
 }
 
 /*
- * Initialize a function call
+ * Push back a token onto the token stream.
  */
-int parser_fcall_init(struct t_expr *expr) {
-  struct t_fcall *call;
-  
-  call = malloc(sizeof(struct t_fcall));
-  call->name = NULL;
-  call->argcount = 0;
-  call->firstarg = NULL;
-  expr->detail = (void *) call;
-
-  return 0;
+void parser_pushtoken(struct t_parser *parser) {
+  scanner_push(&parser->scanner);
 }
 
 char * parser_expr_fmt(struct t_expr *expr) {
@@ -203,30 +205,43 @@ char * parser_expr_fmt(struct t_expr *expr) {
 }
 
 /*
- * Format a function call.
+ * Parse an expression.
  */
-char * parser_fcall_fmt(struct t_expr *expr) {
-  char scratch_buf[PARSER_SCRATCH_BUF + 1];
-  int len;
+struct t_expr * parser_expr_parse(struct t_parser *parser) {
+  struct t_token *token;
+  struct t_expr *expr = NULL;
+  
+  token = parser_token(parser);
+  if (token->type == TT_EOF) {
+    // TODO Do EOF expression
+  }
+  else if (token->type == TT_NUM) {
+    // TODO Do number expression
+    expr = parser_num_parse(parser);
+  }
+  
+  return expr;
+}
+
+char * parser_none_fmt(struct t_expr *expr) {
+  assert(EXP_NONE == expr->type);
+  snprintf(expr->formatbuf, STATEMENT_FORMAT_BUF_SIZE, "<#expr: {type: none}>");
+  return expr->formatbuf;
+}
+
+/*
+ * Initialize a function call
+ */
+int parser_fcall_init(struct t_expr *expr) {
   struct t_fcall *call;
-  char *message = "<#fcall TOO_BIG>";
+  
+  call = malloc(sizeof(struct t_fcall));
+  call->name = NULL;
+  call->argcount = 0;
+  call->firstarg = NULL;
+  expr->detail = (void *) call;
 
-  assert(EXP_FCALL == expr->type);
-  call = (struct t_fcall *) expr->detail;
-  if (call->formatbuf) free(call->formatbuf);
-  len = snprintf(scratch_buf, PARSER_SCRATCH_BUF, "<#fcall: {name: %s, args: %d}>",
-    call->name,
-    0);
-  if (len > PARSER_SCRATCH_BUF) {
-    call->formatbuf = malloc(sizeof(char) * (strlen(message) + 1));
-    strcpy(call->formatbuf, message);
-  }
-  else {
-    call->formatbuf = malloc(sizeof(char) * (len + 1));
-    strcpy(call->formatbuf, scratch_buf);
-  }
-
-  return call->formatbuf;
+  return 0;
 }
 
 /*
@@ -241,10 +256,9 @@ struct t_expr * parser_fcall_parse(struct t_parser *parser) {
 
   expr = malloc(sizeof(struct t_expr));
   parser_expr_init(expr, EXP_FCALL);
-  parser_addexpr(parser, expr);
   call = (struct t_fcall *) expr->detail;
 
-  token = parser_next(parser);
+  token = parser_token(parser);
   if (!token) return NULL;
   if (token->type != TT_NAME) {
       // TODO return ERROR expression
@@ -266,6 +280,7 @@ struct t_expr * parser_fcall_parse(struct t_parser *parser) {
     token = parser_next(parser);
     if (!token) return NULL;
     if (token->type == TT_PARENR) {
+      token = parser_next(parser);
       break;
     }
     else if (token->type == TT_EOF) {
@@ -273,7 +288,6 @@ struct t_expr * parser_fcall_parse(struct t_parser *parser) {
       return NULL;
     }
     else {
-      parser_pushtoken(parser);
       argexpr = parser_expr_parse(parser);
       if (!call->firstarg) {
         call->firstarg = argexpr;
@@ -299,36 +313,72 @@ struct t_expr * parser_fcall_parse(struct t_parser *parser) {
   return expr;
 }
 
-struct t_token *parser_next(struct t_parser *parser) {
-  return scanner_next(&parser->scanner);
-}
-
-struct t_token *parser_token(struct t_parser *parser) {
-  return scanner_token(&parser->scanner);
-}
-
 /*
- * Push back a token onto the token stream.
+ * Format a function call.
  */
-void parser_pushtoken(struct t_parser *parser) {
-  scanner_push(&parser->scanner);
-}
+char * parser_fcall_fmt(struct t_expr *expr) {
+  char scratch_buf[PARSER_SCRATCH_BUF + 1];
+  char args_buf[PARSER_SCRATCH_BUF + 1];
+  int len;
+  struct t_fcall *call;
+  char *message = "<#fcall TOO_BIG>";
+  struct t_expr *arg;
+  char *emptyargs = "[]";
+  char *a;
 
-/*
- * Parse an expression.
- */
-struct t_expr * parser_expr_parse(struct t_parser *parser) {
-  struct t_token *token;
+  assert(EXP_FCALL == expr->type);
+  call = (struct t_fcall *) expr->detail;
   
-  token = parser_next(parser);
-  if (token->type == TT_EOF) {
-    // TODO Do EOF expression
+  /*
+   * Format the arguments
+   */
+  if (!call->firstarg) {
+    strcpy(args_buf, emptyargs);
   }
-  else if (token->type == TT_NUM) {
-    // TODO Do number expression
+  else {
+    len = strlen(emptyargs);
+    arg = call->firstarg;
+    while (arg) {
+      if (arg != call->firstarg) {
+        len += 2; // Lenth of ", "
+      }
+      a = parser_expr_fmt(arg);
+      len += strlen(a);
+      arg = arg->next;
+    }
+    
+    if (len > PARSER_SCRATCH_BUF) {
+      strcpy(args_buf, "TOO_BIG");
+    }
+    else {
+      strcpy(args_buf, "[");
+      arg = call->firstarg;
+      while (arg) {
+        if (arg != call->firstarg) {
+          strcat(args_buf, ", ");
+        }
+        strcat(args_buf, arg->formatbuf);
+        arg = arg->next;
+      }
+      strcat(args_buf, "]");
+    }
   }
   
-  return NULL;
+  len = snprintf(scratch_buf, PARSER_SCRATCH_BUF, "<#fcall: {name: %s, args: %s}>",
+    call->name,
+    args_buf);
+  
+  if (call->formatbuf) free(call->formatbuf);
+  if (len > PARSER_SCRATCH_BUF) {
+    call->formatbuf = malloc(sizeof(char) * (strlen(message) + 1));
+    strcpy(call->formatbuf, message);
+  }
+  else {
+    call->formatbuf = malloc(sizeof(char) * (len + 1));
+    strcpy(call->formatbuf, scratch_buf);
+  }
+
+  return call->formatbuf;
 }
 
 int parser_fcall_close(struct t_expr *expr) {
@@ -341,10 +391,68 @@ int parser_fcall_close(struct t_expr *expr) {
   while (arg) {
     next = arg->next;
     free(arg);
+    arg = next;
   }
   
   if (call->formatbuf) free(call->formatbuf);
   if (call->name) free(call->name);
   
+  return 0;
+}
+
+int parser_num_init(struct t_expr *expr) {
+  struct t_expr_num *num;
+  
+  num = malloc(sizeof(struct t_expr_num));
+  expr->detail = (void *) num;
+  
+  return 0;
+}
+
+char * parser_num_fmt(struct t_expr *expr) {
+  struct t_expr_num *num;
+  char scratch[PARSER_SCRATCH_BUF + 1];
+  int len;
+  char *toobig = "TOO_BIG";
+  
+  num = (struct t_expr_num *) expr->detail;
+  len = snprintf(scratch, PARSER_SCRATCH_BUF, "%d", num->value);
+  if (num->formatbuf) free(num->formatbuf);
+  if (len > PARSER_SCRATCH_BUF) {
+    num->formatbuf = malloc(sizeof(char) * (strlen(toobig) + 1));
+    strcpy(num->formatbuf, toobig);
+  }
+  else {
+    num->formatbuf = malloc(sizeof(char) * (strlen(scratch) + 1));
+    strcpy(num->formatbuf, scratch);
+  }
+  
+  return num->formatbuf;
+}
+
+struct t_expr * parser_num_parse(struct t_parser *parser) {
+  struct t_token *token;
+  struct t_expr_num *num;
+  struct t_expr *expr;
+  
+  // Get the token
+  token = parser_token(parser);
+  if (token->type != TT_NUM) {
+    fprintf(stderr, "(TODO) Expected number. Got: %s\n", token_format(token));
+    return NULL;
+  }
+
+  // Create the expression
+  expr = malloc(sizeof(struct t_expr));
+  parser_expr_init(expr, EXP_NUM);
+  
+  // Get the numeric value
+  num = (struct t_expr_num *) expr->detail;
+  num->value = atoi(token->buf);
+  
+  return expr;
+}
+
+int parser_num_close(struct t_expr *expr) {
   return 0;
 }

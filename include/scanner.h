@@ -19,9 +19,6 @@ extern char *error_names[];
 extern char *parse_error_names[];
 
 #define SCRATCH_BUF_SIZE 1000
-#define TOKEN_BUF_SIZE 200
-#define TOKEN_FORMAT_BUF_SIZE 500
-#define SCANNER_FORMAT_BUF_SIZE 1000
 
 #define TT_UNKNOWN 0
 #define TT_ERROR   1
@@ -56,14 +53,14 @@ extern struct t_indent indent;
 
 struct t_token {
   int type;
-  char buf[TOKEN_BUF_SIZE];
+  char *buf;
   int buf_i;
   int error;
   int row;
   int col;
   struct t_token *prev;
   struct t_token *next;
-  char formatbuf[TOKEN_FORMAT_BUF_SIZE];
+  char *formatbuf;
 };
 
 struct t_scanner {
@@ -81,7 +78,7 @@ struct t_scanner {
   struct t_token *first;  // First of all tokens
   struct t_token *token;  // Last of all tokens, and the current token
   struct t_token unknown;
-  char formatbuf[SCANNER_FORMAT_BUF_SIZE];
+  char *formatbuf;
 };
 
 int scanner_init(struct t_scanner *scanner, FILE *in);
@@ -94,9 +91,10 @@ int scanner_getc(struct t_scanner *scanner);
 
 void scanner_print(struct t_scanner *scanner);
 char * scanner_format(struct t_scanner *scanner);
-struct t_token * token_format(struct t_token *token);
+char * token_format(struct t_token *token);
 
 struct t_token * scanner_next(struct t_scanner *scanner);
+char * scanner_token_char(struct t_scanner *scanner);
 void scanner_push(struct t_scanner *scanner);
 struct t_token * scanner_token(struct t_scanner *scanner);
 
@@ -105,7 +103,7 @@ struct t_token * scanner_parse_name(struct t_scanner *scanner);
 struct t_token * scanner_parse_op(struct t_scanner *scanner);
 struct t_token * scanner_parse_delim(struct t_scanner *scanner);
 
-int token_append(struct t_scanner *scanner);
+//int token_append(struct t_scanner *scanner);
 int scanner_skip_whitespace(struct t_scanner *scanner);
 
 int scanner_charclass(int c);
