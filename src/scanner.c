@@ -52,19 +52,10 @@ char *scanner_delimiters = "()[]{}.:,";
 char *scanner_quotes = "\"'`";
 
 int scanner_init(struct t_scanner *scanner, FILE *in) {
-  scanner->c = '\0';
+  memset(scanner, 0, sizeof(struct t_scanner));
   scanner->c_class = CC_UNKNOWN;
-  scanner->reuse = 0;
-  scanner->error = ERR_NONE;
-  scanner->row = 0;
   scanner->col = -1;
-  scanner->debug = 0;
-  scanner->found_eol = 0;
   scanner->in = in;
-  scanner->token = NULL;
-  scanner->first = NULL;
-  scanner->token_count = 0;
-  scanner->stack_size = 0;
   
   if (!scanner_cc_table_initialized) {
     scanner_build_cc_table();
@@ -82,6 +73,7 @@ int scanner_init(struct t_scanner *scanner, FILE *in) {
 }
 
 void _scanner_init_token(struct t_scanner *scanner, struct t_token *token, int type) {
+  memset(token, 0, sizeof(struct t_token));
   token->type = type;
   token->buf_i = 0;
   token->buf = NULL;
@@ -185,8 +177,7 @@ char * scanner_format(struct t_scanner *scanner) {
   char *toobig = "<#scanner: TOO_BIG>";
   
   util_escape_char(esc_char, scanner->c);
-  len = snprintf(buf, SCRATCH_BUF_SIZE, "<#scanner: {token: %s, first: %s, row: %d, col: '%d', debug: %d, found_eol: %d, token_count: %d, stack_size: %d, c: '%s', c_class: %s, reuse: %d, error: %d}>",
-     token_format(scanner->token),
+  len = snprintf(buf, SCRATCH_BUF_SIZE, "<#scanner: {token: %s, row: %d, col: '%d', debug: %d, found_eol: %d, token_count: %d, stack_size: %d, c: '%s', c_class: %s, reuse: %d, error: %d}>",
      token_format(scanner->first),
      scanner->row,
      scanner->col,
@@ -207,7 +198,6 @@ char * scanner_format(struct t_scanner *scanner) {
     scanner->formatbuf = malloc(sizeof(char) * (len + 1));
     strcpy(scanner->formatbuf, buf);
   }
-  
   
   return scanner->formatbuf;
 }
@@ -305,7 +295,7 @@ char * scanner_token_char(struct t_scanner *scanner) {
 
 struct t_token * scanner_token(struct t_scanner *scanner) {
   if (!scanner->token) {
-    return &scanner->unknown;
+    return scanner_next(scanner);
   }
   else {
     return scanner->token;

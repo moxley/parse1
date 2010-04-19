@@ -65,6 +65,16 @@ struct t_expr_num {
   char *formatbuf;
 };
 
+struct t_func {
+  char *name;
+  
+  /* Native function */
+  struct t_expr * (*invoke)(struct t_func *func, struct t_fcall *call);
+
+  /* Local function-- A linked list of statements */
+  struct item *first;  
+};
+
 /*
  * Parser general
  */

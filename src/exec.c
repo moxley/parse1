@@ -1,71 +1,94 @@
-#include "scanner.h"
-#include "parser.h"
+#include <string.h>
+#include "exec.h"
+#include "util.h"
 
-struct t_function {
-  char *name;
-};
+struct item *firstfunc = NULL;
+struct item *lastfunc = NULL;
 
-int exec_run(struct t_scanner *scanner);
-int exec_func(struct t_scanner *scanner);
-int parser_parse_func(struct t_scanner *scanner, struct t_function *func); 
-int parser_parse_func_args(struct t_scanner *scanner, struct t_function *func);
-
-int main(int argc, char** argv) {
-  struct t_scanner scanner;
-
-  if (scanner_init(&scanner, stdin)) {
-    fprintf(stderr, "Failed to initialize scanner\n");
-    return 1;
-  }
-  scanner.debug = 1;
-  exec_run(&scanner);
-  scanner_close(&scanner);
-  printf("Done.\n");
-  return 0;
-}
-
-int exec_run(struct t_scanner *scanner) {
-  struct t_token *token;
+/*
+ * Execute a statement.
+ */
+struct t_expr * exec_stmt(struct t_expr *stmt) {
+  struct t_func *func;
+  struct t_fcall *call;
+  struct t_expr *ret = NULL;
   
-  do {
-    if ((token = scanner_next(scanner)) == NULL) {
-      fprintf(stderr, "An error occurred during parsing: errno: %d\n", scanner->error);
-      return 1;
+  if (!stmt) {
+    return NULL;
+  }
+  
+  if (stmt->type == EXP_FCALL) {
+    call = (struct t_fcall *) stmt->detail;
+    func = exec_funcbyname(call->name);
+    if (!func) {
+      fprintf(stderr, "(TODO) Function %s() is not defined.\n", call->name);
+      return NULL;
     }
-    if (token->type == TT_NAME) {
-      if (exec_func(scanner)) return 1;
-    }
-  } while (token->type != TT_EOF);
-  return 0;
+    ret = exec_invoke(func, call);
+  }
+  
+  return ret;
 }
 
-int exec_func(struct t_scanner *scanner) {
-  struct t_function func;
-  if (parser_parse_func(scanner, &func)) return 1;
-  return 0;
+/*
+ * Add a function.
+ */
+void exec_addfunc(struct t_func *func) {
+  struct item *item;
+  
+  if (!lastfunc) {
+    firstfunc = llist_newitem((void *) func);
+    lastfunc = firstfunc;
+  }
+  else {
+    item = llist_newitem(func);
+    llist_append(lastfunc, item);
+    lastfunc = item;
+  }
 }
 
-int parser_parse_func(struct t_scanner *scanner, struct t_function *func) {
-  printf("Function name: %s\n", scanner_token(scanner)->buf);
-  if (!scanner_next(scanner)) return 1;
-  if (parser_parse_func_args(scanner, func)) return 1;
-  return 0;
-}
-
-int parser_parse_func_args(struct t_scanner *scanner, struct t_function *func) {
-  do {
-    if (scanner_token(scanner)->type != TT_NUM) {
-      if (scanner_token(scanner)->type == TT_EOL) {
-        printf("EOL found. Scanning for next token\n");
-        if (!scanner_next(scanner)) return 1;
-      }
-      break;
+/*
+ * Find a function by name
+ */
+struct t_func * exec_funcbyname(char *name) {
+  struct item *item;
+  struct t_func *func;
+  
+  item = firstfunc;
+  while (item) {
+    func = (struct t_func *) item->value;
+    if (strcmp(func->name, name) == 0) {
+      return func;
     }
-    else {
-        printf("Number: %s\n", scanner_token(scanner)->buf);
-        if (!scanner_next(scanner)) return 1;
-    }
-  } while (1);
-  return 0;
+    item = item->next;
+  }
+  
+  return NULL;
 }
 
+/*
+ * Invoke a function.
+ */
+struct t_expr * exec_invoke(struct t_func *func, struct t_fcall *call) {
+  struct t_expr *ret = NULL;
+  struct item *stmt_item;
+  struct t_expr *stmt;
+  
+  if (func->invoke) {
+    ret = func->invoke(func, call);
+  }
+  else if (func->first) {
+    /* TODO Put parameters in namespace */
+    stmt_item = func->first;
+    while (stmt_item) {
+      stmt = (struct t_expr *) stmt_item->value;
+      ret = exec_stmt(stmt);
+    }
+  }
+  else {
+    fprintf(stderr, "(TODO) Function %s() is missing a body", func->name);
+    return NULL;
+  }
+  
+  return ret;
+}

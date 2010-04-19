@@ -15,9 +15,12 @@ int main(void) {
       fprintf(stderr, "An error occurred during parsing: errno: %d\n", scanner.error);
       break;
     }
-    scanner_print(&scanner);
+    
+    printf("%s\n", scanner_format(&scanner));
   } while (token->type != TT_EOF);
+    
   scanner_close(&scanner);
   printf("Done.\n");
+  
   return 0;
 }

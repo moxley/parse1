@@ -27,10 +27,12 @@ struct t_expr expression_types[] = {
 int expr_types_size = sizeof(expression_types);
 
 char statement_buf[STATEMENT_FORMAT_BUF_SIZE];
+char *nullexpr = "<#expr: {type: NULL}>";
 
 struct t_expr noexpr;
 
 int parser_init(struct t_parser *parser, FILE *in) {
+  memset(parser, 0, sizeof(struct t_parser));
   noexpr.type = EXP_NONE;
   noexpr.format = &parser_none_fmt;
   parser->first = NULL;
@@ -178,6 +180,10 @@ char * parser_expr_fmt(struct t_expr *expr) {
   char *message = "<#expr TOO_BIG>";
   char *detailbuf = NULL;
   
+  if (!expr) {
+    return nullexpr;
+  }
+  
   if (!expr->detail) {
     detailbuf = "NONE";
   }
@@ -218,6 +224,13 @@ struct t_expr * parser_expr_parse(struct t_parser *parser) {
   else if (token->type == TT_NUM) {
     // TODO Do number expression
     expr = parser_num_parse(parser);
+  }
+  else if (token->type == TT_NAME) {
+    expr = parser_fcall_parse(parser);
+  }
+  else {
+    expr = &noexpr;
+    parser_next(parser);
   }
   
   return expr;
