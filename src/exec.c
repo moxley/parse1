@@ -66,6 +66,9 @@ struct t_func * exec_funcbyname(char *name) {
   return NULL;
 }
 
+struct t_expr * exec_eval(struct t_expr *expr, struct t_expr *value) {
+}
+
 /*
  * Invoke a function.
  */
@@ -73,12 +76,24 @@ struct t_expr * exec_invoke(struct t_func *func, struct t_fcall *call) {
   struct t_expr *ret = NULL;
   struct item *stmt_item;
   struct t_expr *stmt;
+  struct t_expr args[call->argcount + 1];
+  struct t_expr *arg;
+  int i;
+
+  /* Evaluate arguments */
+  arg = call->firstarg;
+  for (int i=0; i<call->argcount; i++) {
+    if (!exec_eval(arg, &args[i])) {
+    }
+  }
   
   if (func->invoke) {
     ret = func->invoke(func, call);
   }
   else if (func->first) {
     /* TODO Put parameters in namespace */
+    ret = malloc(sizeof(struct t_expr));
+    parser_expr_init(ret, EXP_NULL);
     stmt_item = func->first;
     while (stmt_item) {
       stmt = (struct t_expr *) stmt_item->value;

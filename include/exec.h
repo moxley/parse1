@@ -8,6 +8,7 @@ extern struct item *firstfunc;
 extern struct item *lastfunc;
 
 struct t_expr * exec_stmt(struct t_expr *stmt);
+struct t_expr * exec_eval(struct t_expr *expr, struct t_expr *value);
 
 void exec_addfunc(struct t_func *func);
 struct t_func * exec_funcbyname(char *name);

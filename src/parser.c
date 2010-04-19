@@ -18,8 +18,9 @@ char *parser_error_names[] = {
 /* Expression types */
 struct t_expr expression_types[] = {
   {EXP_NONE, "none", NULL, &parser_none_fmt, NULL, NULL},
-  {EXP_NONE, "error", NULL, NULL, NULL, NULL},
-  {EXP_NONE, "eof", NULL, NULL, NULL, NULL},
+  {EXP_ERROR, "error", NULL, NULL, NULL, NULL},
+  {EXP_EOF, "eof", NULL, NULL, NULL, NULL},
+  {EXP_NULL, "null", NULL, NULL, NULL, NULL},
   {EXP_NUM,  "num", &parser_num_init, &parser_num_fmt, &parser_num_parse, &parser_num_close},
   {EXP_FCALL, "fcall", &parser_fcall_init, &parser_fcall_fmt, &parser_fcall_parse, &parser_fcall_close}
 };
@@ -120,6 +121,8 @@ int parser_expr_destroy(struct t_expr *expr) {
 
 int parser_expr_init(struct t_expr *expr, int type) {
   struct t_expr *tpl;
+
+  parser_expr_destroy(expr);
   
   memset(expr, 0, sizeof(struct t_expr));
   tpl = &expression_types[type];
@@ -250,8 +253,10 @@ int parser_fcall_init(struct t_expr *expr) {
   
   call = calloc(1, sizeof(struct t_fcall));
   call->name = NULL;
-  call->argcount = 0;
   call->firstarg = NULL;
+  call->argcount = 0;
+  call->formatbuf = NULL;
+  call->ret = NULL;
   expr->detail = (void *) call;
 
   return 0;

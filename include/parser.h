@@ -17,8 +17,9 @@
 #define EXP_NONE    0
 #define EXP_ERROR   1
 #define EXP_EOF     2
-#define EXP_NUM     3
-#define EXP_FCALL   4
+#define EXP_NULL    3
+#define EXP_NUM     4
+#define EXP_FCALL   5
 
 extern char *parser_keywords[];
 
@@ -58,6 +59,7 @@ struct t_fcall {
   struct t_expr *firstarg;
   int argcount;
   char *formatbuf;
+  struct t_expr *ret;
 };
 
 struct t_expr_num {
