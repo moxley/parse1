@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <util.h>
 
 #define ERR_NONE  0
 #define ERR_READ  1
@@ -14,7 +15,8 @@ extern char *error_names[];
 #define PERR_NONE 0
 #define PERR_MAX_TOKEN_SIZE 1
 #define PERR_MAX_NUM_SIZE 2
-#define PERR_MAX_ERRORS 3
+#define PERR_MAX_NAME_SIZE 3
+#define PERR_MAX_ERRORS 4
 
 extern char *parse_error_names[];
 
@@ -48,8 +50,17 @@ extern char *token_types[];
 extern char * scanner_cc_names[];
 
 #define MAX_NUM_LEN 4
+#define MAX_NAME_LEN 50
 
 extern struct t_indent indent;
+
+struct t_char {
+  int c;
+  int c_class;
+  int row;
+  int col;
+  char *formatbuf;
+};
 
 struct t_token {
   int type;
@@ -64,17 +75,13 @@ struct t_token {
 };
 
 struct t_scanner {
-  int c;
-  int c_class;
-  int reuse;
   FILE *in;
   int error;
-  int row;
-  int col;
   int debug;
-  int found_eol;
   int token_count;
   int stack_size;
+  struct item *pushback;
+  struct t_char *current;
   struct t_token *first;  // First of all tokens
   struct t_token *token;  // Last of all tokens, and the current token
   struct t_token unknown;
@@ -87,7 +94,11 @@ struct t_token * scanner_init_token(struct t_scanner *scanner, int type);
 void token_copy(struct t_token *dest, const struct t_token *source);
 void scanner_close(struct t_scanner *scanner);
 
-int scanner_getc(struct t_scanner *scanner);
+struct t_char * scanner_c(struct t_scanner *scanner);
+int scanner_ch(struct t_scanner *scanner);
+struct t_char * scanner_nextc(struct t_scanner *scanner);
+int scanner_nextch(struct t_scanner *scanner);
+int scanner_pushc(struct t_scanner *scanner);
 
 void scanner_print(struct t_scanner *scanner);
 char * scanner_format(struct t_scanner *scanner);
@@ -98,6 +109,7 @@ char * scanner_token_char(struct t_scanner *scanner);
 void scanner_push(struct t_scanner *scanner);
 struct t_token * scanner_token(struct t_scanner *scanner);
 
+struct t_token * scanner_parse_eol(struct t_scanner *scanner);
 struct t_token * scanner_parse_num(struct t_scanner *scanner);
 struct t_token * scanner_parse_name(struct t_scanner *scanner);
 struct t_token * scanner_parse_op(struct t_scanner *scanner);

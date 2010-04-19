@@ -2,7 +2,9 @@
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <assert.h>
 #include "scanner.h"
+#include "util.h"
 
 #define CC_TABLE_SIZE 256
 int scanner_cc_table[CC_TABLE_SIZE];
@@ -18,6 +20,7 @@ char *parse_error_names[] = {
   "PERR_NONE",
   "PERR_MAX_TOKEN_SIZE",
   "PERR_MAX_NUM_SIZE",
+  "PERR_MAX_NAME_SIZE",
   "PERR_MAX_ERRORS"
 };
 
@@ -53,18 +56,11 @@ char *scanner_quotes = "\"'`";
 
 int scanner_init(struct t_scanner *scanner, FILE *in) {
   memset(scanner, 0, sizeof(struct t_scanner));
-  scanner->c_class = CC_UNKNOWN;
-  scanner->col = -1;
   scanner->in = in;
   
   if (!scanner_cc_table_initialized) {
     scanner_build_cc_table();
     scanner_cc_table_initialized = 1;
-  }
-
-  if (scanner_getc(scanner)) {
-    scanner->error = ERR_READ;
-    return 1;
   }
 
   _scanner_init_token(scanner, &scanner->unknown, TT_UNKNOWN);
@@ -73,16 +69,13 @@ int scanner_init(struct t_scanner *scanner, FILE *in) {
 }
 
 void _scanner_init_token(struct t_scanner *scanner, struct t_token *token, int type) {
+  struct t_char *c;
+  
+  c = scanner_c(scanner);
   memset(token, 0, sizeof(struct t_token));
   token->type = type;
-  token->buf_i = 0;
-  token->buf = NULL;
-  token->error = PERR_NONE;
-  token->row = scanner->row;
-  token->col = scanner->col;
-  token->formatbuf = NULL;
-  token->prev = NULL;
-  token->next = NULL;
+  token->row = c->row;
+  token->col = c->col;
 }
 
 struct t_token * scanner_init_token(struct t_scanner *scanner, int type) {
@@ -131,73 +124,143 @@ void scanner_close(struct t_scanner *scanner) {
   }
 }
 
-int scanner_getc(struct t_scanner *scanner) {
-  char esc_char[3];
+int scanner_nextch(struct t_scanner *scanner) {
+  return scanner_nextc(scanner)->c;
+}
+
+struct t_char * scanner_nextc(struct t_scanner *scanner) {
+  struct t_char *c;
+  struct item *top;
   
-  if (scanner->reuse) {
-    scanner->reuse = 0;
+  if (scanner->pushback) {
+    top = scanner->pushback;
+    scanner->pushback = top->prev;
+    if (scanner->pushback) {
+      scanner->pushback->next = NULL;
+    }
+    scanner->current = (struct t_char *) top->value;
+    free(top);
   }
   else {
-    scanner->c = getc(scanner->in);
-    scanner->col++;
-    if (scanner->c == '\r') {
-      if (scanner->found_eol) {
-        scanner->row++;
-        scanner->col = 0;
-      }
-      else {
-        scanner->found_eol = 1;
-      }
+    c = malloc(sizeof(struct t_char));
+    c->c = getc(scanner->in);
+    if (!scanner->current || (scanner->current->c == '\r' && c->c != '\n') || scanner->current->c == '\n') {
+      c->col = 0;
+      c->row = 0;
     }
-    else if (scanner->c == '\n') {
-      scanner->found_eol = 1;
+    else {
+      c->col = scanner->current->col + 1;
+      c->row = scanner->current->row;
     }
-    else if (scanner->found_eol) {
-      scanner->row++;
-      scanner->col = 0;
-      scanner->found_eol = 0;
-    }
-    scanner->c_class = scanner_charclass(scanner->c);
+    c->c_class = scanner_charclass(c->c);
+    free(scanner->current);
+    scanner->current = c;
   }
+  
+  return scanner->current;
+}
 
-  if (scanner->debug >= 2) {
-    util_escape_char(esc_char, scanner->c);
-    printf("scanner_getc() c: '%s', c_class: %s\n",
-      esc_char,
-      scanner_cc_names[scanner->c_class]);
+/*
+ * Get the current character
+ */
+struct t_char * scanner_c(struct t_scanner *scanner) {
+  if (!scanner->current) {
+    return scanner_nextc(scanner);
+  }
+  else {
+    return scanner->current;
+  }
+}
+
+int scanner_ch(struct t_scanner *scanner) {
+  return scanner_c(scanner)->c;
+}
+
+/*
+ * Push the current character back into the stream.
+ */
+int scanner_pushc(struct t_scanner *scanner) {
+  struct item *item;
+  
+  item = llist_newitem(scanner->current);
+  if (!scanner->pushback) {
+    scanner->pushback = item;
+  }
+  else {
+    scanner->pushback->next = item;
+    item->prev = scanner->pushback;
+    scanner->pushback = item;
   }
   
   return 0;
 }
 
-char * scanner_format(struct t_scanner *scanner) {
+char * char_format(struct t_char *ch) {
   char esc_char[3];
   char buf[SCRATCH_BUF_SIZE + 1];
   int len;
-  char *toobig = "<#scanner: TOO_BIG>";
+  int allocsize;
+  char *source;
+  char *toobig = "<#t_char: TOO_BIG>";
   
-  util_escape_char(esc_char, scanner->c);
-  len = snprintf(buf, SCRATCH_BUF_SIZE, "<#scanner: {token: %s, row: %d, col: '%d', debug: %d, found_eol: %d, token_count: %d, stack_size: %d, c: '%s', c_class: %s, reuse: %d, error: %d}>",
-     token_format(scanner->first),
-     scanner->row,
-     scanner->col,
-     scanner->debug,
-     scanner->found_eol,
-     scanner->token_count,
-     scanner->stack_size,
-     esc_char,
-     scanner_cc_names[scanner->c_class],
-     scanner->reuse,
-     scanner->error);
-  if (scanner->formatbuf) free(scanner->formatbuf);
+  util_escape_char(esc_char, ch->c);
+  len = snprintf(buf, SCRATCH_BUF_SIZE, "<#t_char: {c: '%s', c_class: %s, row: %d, col: %d}>",
+    esc_char,
+    scanner_cc_names[ch->c_class],
+    ch->row,
+    ch->col);
   if (len > SCRATCH_BUF_SIZE) {
-    scanner->formatbuf = malloc(sizeof(char) * (strlen(toobig) + 1));
-    strcpy(scanner->formatbuf, toobig);
+    allocsize = strlen(toobig) + 1;
+    source = toobig;
   }
   else {
-    scanner->formatbuf = malloc(sizeof(char) * (len + 1));
-    strcpy(scanner->formatbuf, buf);
+    allocsize = len + 1;
+    source = buf;
   }
+  if (ch->formatbuf) free(ch->formatbuf);
+  ch->formatbuf = malloc(sizeof(char) * allocsize);
+  strcpy(ch->formatbuf, buf);
+  
+  return ch->formatbuf;
+}
+
+char * scanner_format(struct t_scanner *scanner) {
+  char buf[SCRATCH_BUF_SIZE + 1];
+  int len;
+  char *toobig = "<#scanner: TOO_BIG>";
+  int allocsize;
+  char *source;
+  struct t_char *current;
+  struct t_char blank;
+  
+  if (scanner->current) {
+    current = scanner->current;
+  }
+  else {
+    memset(&blank, 0, sizeof(struct t_char));
+    current = &blank;
+  }
+  
+  len = snprintf(buf, SCRATCH_BUF_SIZE, "<#scanner: {c: %s, token: %s, row: %d, col: '%d', debug: %d, token_count: %d, stack_size: %d, error: %d}>",
+     char_format(scanner->current),
+     token_format(scanner->token),
+     current->row,
+     current->col,
+     scanner->debug,
+     scanner->token_count,
+     scanner->stack_size,
+     scanner->error);
+  if (len > SCRATCH_BUF_SIZE) {
+    allocsize = strlen(toobig) + 1;
+    source = toobig;
+  }
+  else {
+    allocsize = len + 1;
+    source = buf;
+  }
+  if (scanner->formatbuf) free(scanner->formatbuf);
+  scanner->formatbuf = malloc(sizeof(char) * allocsize);
+  strcpy(scanner->formatbuf, buf);
   
   return scanner->formatbuf;
 }
@@ -232,9 +295,13 @@ char * token_format(struct t_token *token) {
   return token->formatbuf;
 }
 
+/*
+ * Get the next token.
+ */
 struct t_token * scanner_next(struct t_scanner *scanner) {
   struct t_token *token;
   int i;
+  struct t_char *c;
   
   if (scanner->stack_size > 0) {
     token = scanner->token;
@@ -246,31 +313,31 @@ struct t_token * scanner_next(struct t_scanner *scanner) {
   }
   
   if (scanner_skip_whitespace(scanner)) return NULL;
-
-  if (scanner->c_class == CC_EOF) {
+  c = scanner_c(scanner);
+  
+  if (c->c_class == CC_EOF) {
     token = scanner_init_token(scanner, TT_EOF);
-  }
-  else if (scanner->c_class == CC_EOL) {
-    token = scanner_init_token(scanner, TT_EOL);
     scanner_token_char(scanner);
-    if (scanner_getc(scanner)) return NULL;
   }
-  else if (scanner->c_class == CC_DIGIT) {
+  else if (c->c_class == CC_EOL) {
+    token = scanner_parse_eol(scanner);
+  }
+  else if (c->c_class == CC_DIGIT) {
     token = scanner_parse_num(scanner);
   }
-  else if (scanner->c_class == CC_ALPHA) {
+  else if (c->c_class == CC_ALPHA || c->c == '_') {
     token = scanner_parse_name(scanner);
   }
-  else if (scanner->c_class == CC_OP) {
+  else if (c->c_class == CC_OP) {
     token = scanner_parse_op(scanner);
   }
-  else if (scanner->c_class == CC_DELIM) {
+  else if (c->c_class == CC_DELIM) {
     token = scanner_parse_delim(scanner);
   }
   else {
     token = scanner_init_token(scanner, TT_UNKNOWN);
     scanner_token_char(scanner);
-    if (scanner_getc(scanner)) return NULL;
+    if (!scanner_nextc(scanner)) return NULL;
     if (scanner->debug) {
       scanner_print(scanner);
     }
@@ -287,7 +354,7 @@ char * scanner_token_char(struct t_scanner *scanner) {
   token = scanner->token;
   if (token->buf) free(token->buf);
   token->buf = malloc(sizeof(char) * 2);
-  token->buf[0] = scanner->c;
+  token->buf[0] = scanner_ch(scanner);
   token->buf[1] = '\0';
   
   return token->buf;
@@ -309,21 +376,62 @@ void scanner_push(struct t_scanner *scanner) {
   scanner->stack_size++;
 }
 
+struct t_token * scanner_parse_eol(struct t_scanner *scanner) {
+  struct t_token *token;
+  int size;
+  int c;
+  char *str;
+  
+  c = scanner_ch(scanner);
+  token = scanner_init_token(scanner, TT_EOL);
+  size = 2;
+  if (c == '\r') {
+    c = scanner_nextch(scanner);
+    if (c == '\n') {
+      size++;
+      str = "\r\n";
+      scanner_nextch(scanner);
+    }
+    else {
+      str = "\r";
+      scanner_nextc(scanner);
+    }
+  }
+  else if (c == '\n') {
+    str = "\n";
+    scanner_nextc(scanner);
+  }
+  else {
+    assert(0);
+  }
+  token->buf = malloc(sizeof(char) * size);
+  strcpy(token->buf, str);  
+  
+  return token;
+}
+
 struct t_token * scanner_parse_num(struct t_scanner *scanner) {
   int i;
   struct t_token *token;
   char buf[SCRATCH_BUF_SIZE + 1];
   int buf_i = 0;
+  struct t_char *c;
   
+  c = scanner_c(scanner);
   token = scanner_init_token(scanner, TT_NUM);
   for (i=0; 1; ++i) {
     if (i >= MAX_NUM_LEN) {
       token->type = TT_ERROR;
       token->error = PERR_MAX_NUM_SIZE;
     }
-    buf[buf_i++] = scanner->c;
-    if (scanner_getc(scanner)) return NULL;
-    if (scanner->c_class != CC_DIGIT) {
+    if (i < SCRATCH_BUF_SIZE) {
+      buf[buf_i++] = c->c;
+    }
+    if ((c = scanner_nextc(scanner)) == NULL) {
+      fprintf(stderr, "Failed on call to scanner_nextc()\n");
+      return NULL;
+    }
+    if (c->c_class != CC_DIGIT) {
       break;
     }
   }
@@ -339,15 +447,22 @@ struct t_token * scanner_parse_name(struct t_scanner *scanner) {
   struct t_token *token;
   char buf[SCRATCH_BUF_SIZE + 1];
   int buf_i = 0;
+  struct t_char *c;
+  int i = 0;
   
+  c = scanner_c(scanner);
   token = scanner_init_token(scanner, TT_NAME);
-  while (1) {
-    buf[buf_i++] = scanner->c;
-    if (scanner_getc(scanner)) return NULL;
-    if (!isalpha(scanner->c)) {
-      break;
+  do {
+    if (i == MAX_NAME_LEN) {
+      token->type = TT_ERROR;
+      token->error = PERR_MAX_NAME_SIZE;
     }
-  }
+    if (i < SCRATCH_BUF_SIZE) {
+      buf[buf_i++] = c->c;
+    }
+    if ((c = scanner_nextc(scanner)) == NULL) return NULL;
+    i++;
+  } while (c->c_class == CC_ALPHA || c->c_class == CC_DIGIT || c->c == '_');
   buf[buf_i] = '\0';
   if (token->buf) free(token->buf);
   token->buf = malloc(sizeof(char) * (buf_i + 1));
@@ -360,11 +475,13 @@ struct t_token * scanner_parse_op(struct t_scanner *scanner) {
   struct t_token *token;
   char buf[SCRATCH_BUF_SIZE + 1];
   int buf_i = 0;
+  struct t_char *c;
   
-  if (scanner->c == '+') {
+  c = scanner_c(scanner);
+  if (c->c == '+') {
     token = scanner_init_token(scanner, TT_PLUS);
   }
-  else if (scanner->c == '=') {
+  else if (c->c == '=') {
     token = scanner_init_token(scanner, TT_EQUAL);
   }
   else {
@@ -374,9 +491,9 @@ struct t_token * scanner_parse_op(struct t_scanner *scanner) {
   int i;
   int invalid = 0;
   for (i=0; 1; i++) {
-    buf[buf_i++] = scanner->c;
-    if (scanner_getc(scanner)) return NULL;
-    if (scanner->c_class == CC_OP) {
+    buf[buf_i++] = c->c;
+    if ((c = scanner_nextc(scanner)) == NULL) return NULL;
+    if (c->c_class == CC_OP) {
       invalid = 1;
     }
     else {
@@ -400,8 +517,11 @@ struct t_token * scanner_parse_delim(struct t_scanner *scanner)
 {
   int type = TT_UNKNOWN;
   struct t_token *token;
+  struct t_char *c;
   
-  switch (scanner->c) {
+  c = scanner_c(scanner);
+  
+  switch (c->c) {
   case '(':
     type = TT_PARENL;
     break;
@@ -414,32 +534,14 @@ struct t_token * scanner_parse_delim(struct t_scanner *scanner)
   }
 
   token = scanner_init_token(scanner, type);
-  if (token->buf) free(token->buf);
-  token->buf = malloc(sizeof(char) * 2);
-  token->buf[0] = scanner->c;
-  token->buf[1] = '\0';
-  if (scanner_getc(scanner)) return NULL;
+  scanner_token_char(scanner);
+  if (scanner_nextc(scanner) == NULL) return NULL;
   return token;
 }
 
-//int token_append(struct t_scanner *scanner)
-//{
-//  struct t_token *token;
-//  
-//  token = scanner_token(scanner);
-//  if (token->buf_i >= TOKEN_BUF_SIZE) {
-//    scanner->error = PERR_MAX_TOKEN_SIZE;
-//    return 1;
-//  }
-//  token->buf[token->buf_i] = scanner->c;
-//  token->buf[token->buf_i+1] = '\0';
-//  token->buf_i++;
-//  return 0;
-//}
-
 int scanner_skip_whitespace(struct t_scanner *scanner) {
-  while (scanner->c_class == CC_SPACE) {
-    if (scanner_getc(scanner)) return 1;
+  while (scanner_c(scanner)->c_class == CC_SPACE) {
+    if (scanner_nextc(scanner) == NULL) return 1;
   }
   return 0;
 }

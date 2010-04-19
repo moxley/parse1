@@ -1,12 +1,15 @@
 #include <stdlib.h>
+#include <string.h>
 #include "util.h"
 
+/*
+ * Linked list
+ */
 struct item * llist_newitem(void *value) {
   struct item *item;
   
   item = malloc(sizeof(struct item));
-  item->next = NULL;
-  item->prev = NULL;
+  memset(item, 0, sizeof(struct item));
   item->value = value;
   
   return item;
@@ -37,3 +40,4 @@ void llist_remove(struct item *item) {
   if (item->prev) item->prev->next = item->next;
   if (item->next) item->next->prev = item->prev;
 }
+

@@ -318,7 +318,7 @@ struct t_expr * parser_fcall_parse(struct t_parser *parser) {
       parser_pushtoken(parser);
     }
     else if (token->type != TT_COMMA) {
-      fprintf(stderr, "(TODO) Syntax error: Expected function argument or closing parenthese ')'\n");
+      fprintf(stderr, "(TODO) Syntax error: Expected function argument or closing parenthese ')'. Got: %s\n", token_format(token));
       return NULL;
     }
   }
@@ -429,7 +429,7 @@ char * parser_num_fmt(struct t_expr *expr) {
   char *toobig = "TOO_BIG";
   
   num = (struct t_expr_num *) expr->detail;
-  len = snprintf(scratch, PARSER_SCRATCH_BUF, "%d", num->value);
+  len = snprintf(scratch, PARSER_SCRATCH_BUF, "<#num {type=%d, value=%d}>", num->type, num->value);
   if (num->formatbuf) free(num->formatbuf);
   if (len > PARSER_SCRATCH_BUF) {
     num->formatbuf = malloc(sizeof(char) * (strlen(toobig) + 1));
