@@ -102,6 +102,7 @@ int scanner_pushc(struct t_scanner *scanner);
 
 void scanner_print(struct t_scanner *scanner);
 char * scanner_format(struct t_scanner *scanner);
+char * char_format(struct t_char *ch);
 char * token_format(struct t_token *token);
 
 struct t_token * scanner_next(struct t_scanner *scanner);

@@ -99,15 +99,29 @@ struct t_token * scanner_init_token(struct t_scanner *scanner, int type) {
 }
 
 void token_copy(struct t_token *dest, const struct t_token *source) {
-  dest->buf_i = source->buf_i;
-  strcpy(dest->buf, source->buf);
   dest->type = source->type;
+  if (dest->buf) free(dest->buf);
+  if (!source->buf) {
+	dest->buf = NULL;
+  }
+  else {
+    dest->buf = malloc(sizeof(char) * (strlen(source->buf) + 1));
+    strcpy(dest->buf, source->buf);
+  }
+  dest->buf_i = source->buf_i;
   dest->error = source->error;
   dest->row = source->row;
   dest->col = source->col;
+  dest->prev = source->prev;
+  dest->next = source->next;
   if (dest->formatbuf) free(dest->formatbuf);
-  dest->formatbuf = malloc(sizeof(char) * (strlen(source->formatbuf) + 1));
-  strcpy(dest->formatbuf, source->formatbuf);
+  if (!source->formatbuf) {
+	dest->formatbuf = NULL;
+  }
+  else {
+    dest->formatbuf = malloc(sizeof(char) * (strlen(source->formatbuf) + 1));
+    strcpy(dest->formatbuf, source->formatbuf);
+  }
 }
 
 void scanner_close(struct t_scanner *scanner) {
@@ -143,6 +157,7 @@ struct t_char * scanner_nextc(struct t_scanner *scanner) {
   }
   else {
     c = malloc(sizeof(struct t_char));
+	memset(c, 0, sizeof(struct t_char));
     c->c = getc(scanner->in);
     if (!scanner->current || (scanner->current->c == '\r' && c->c != '\n') || scanner->current->c == '\n') {
       c->col = 0;
@@ -219,7 +234,7 @@ char * char_format(struct t_char *ch) {
   }
   if (ch->formatbuf) free(ch->formatbuf);
   ch->formatbuf = malloc(sizeof(char) * allocsize);
-  strcpy(ch->formatbuf, buf);
+  strcpy(ch->formatbuf, source);
   
   return ch->formatbuf;
 }
@@ -379,15 +394,15 @@ void scanner_push(struct t_scanner *scanner) {
 struct t_token * scanner_parse_eol(struct t_scanner *scanner) {
   struct t_token *token;
   int size;
-  int c;
+  int ch;
   char *str;
   
-  c = scanner_ch(scanner);
+  ch = scanner_ch(scanner);
   token = scanner_init_token(scanner, TT_EOL);
   size = 2;
-  if (c == '\r') {
-    c = scanner_nextch(scanner);
-    if (c == '\n') {
+  if (ch == '\r') {
+    ch = scanner_nextch(scanner);
+    if (ch == '\n') {
       size++;
       str = "\r\n";
       scanner_nextch(scanner);
@@ -397,7 +412,7 @@ struct t_token * scanner_parse_eol(struct t_scanner *scanner) {
       scanner_nextc(scanner);
     }
   }
-  else if (c == '\n') {
+  else if (ch == '\n') {
     str = "\n";
     scanner_nextc(scanner);
   }

@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include "scanner.h"
 
 int main(void) {
@@ -12,16 +13,15 @@ int main(void) {
   }
 
   do {
-    printf("Top of loop\n");
     if ((token = scanner_next(&scanner)) == NULL) {
       fprintf(stderr, "An error occurred during parsing: errno: %d\n", scanner.error);
       break;
     }
     
-    printf("%s\n", scanner_format(&scanner));
+    printf("%s\n", token_format(token));
     i++;
   } while (token->type != TT_EOF && i < 30);
-    
+
   scanner_close(&scanner);
   printf("Done.\n");
   

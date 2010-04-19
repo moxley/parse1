@@ -3,7 +3,6 @@
 #include "parser.h"
 
 #define INDENT_BUF 80
-#define PARSER_SCRATCH_BUF 1024
 
 /* Keywords */
 char *parser_keywords[] = {
@@ -49,6 +48,7 @@ int parser_count_errors(struct t_parser *parser) {
   
   do {
     if ((token = scanner_next(&(parser->scanner))) == NULL) return 1;
+    printf("token: %s\n", token_format(token));
     if (token->type == TT_ERROR) {
       parser->errors[error_i] = malloc(sizeof(struct t_parse_error));
       if (error_i == MAX_PARSE_ERRORS) {
@@ -63,6 +63,7 @@ int parser_count_errors(struct t_parser *parser) {
       error_i++;
     }
   } while(token->type != TT_EOF);
+  exit(1);
 
   parser->errors[error_i] = (struct t_parse_error *) 0;
   return parser->error;
@@ -120,6 +121,7 @@ int parser_expr_destroy(struct t_expr *expr) {
 int parser_expr_init(struct t_expr *expr, int type) {
   struct t_expr *tpl;
   
+  memset(expr, 0, sizeof(struct t_expr));
   tpl = &expression_types[type];
   expr->type = type;
   expr->name = tpl->name;
@@ -127,8 +129,6 @@ int parser_expr_init(struct t_expr *expr, int type) {
   expr->format = tpl->format;
   expr->parse = tpl->parse;
   expr->destroy = tpl->destroy;
-  expr->next = NULL;
-  expr->formatbuf = NULL;
   
   if (expr->init) {
     if (expr->init(expr)) {
@@ -248,7 +248,7 @@ char * parser_none_fmt(struct t_expr *expr) {
 int parser_fcall_init(struct t_expr *expr) {
   struct t_fcall *call;
   
-  call = malloc(sizeof(struct t_fcall));
+  call = calloc(1, sizeof(struct t_fcall));
   call->name = NULL;
   call->argcount = 0;
   call->firstarg = NULL;
@@ -376,12 +376,14 @@ char * parser_fcall_fmt(struct t_expr *expr) {
       strcat(args_buf, "]");
     }
   }
-  
+
   len = snprintf(scratch_buf, PARSER_SCRATCH_BUF, "<#fcall: {name: %s, args: %s}>",
     call->name,
     args_buf);
-  
-  if (call->formatbuf) free(call->formatbuf);
+
+  if (call->formatbuf) {
+    free(call->formatbuf);
+  }
   if (len > PARSER_SCRATCH_BUF) {
     call->formatbuf = malloc(sizeof(char) * (strlen(message) + 1));
     strcpy(call->formatbuf, message);
@@ -416,7 +418,7 @@ int parser_fcall_close(struct t_expr *expr) {
 int parser_num_init(struct t_expr *expr) {
   struct t_expr_num *num;
   
-  num = malloc(sizeof(struct t_expr_num));
+  num = calloc(1, sizeof(struct t_expr_num));
   expr->detail = (void *) num;
   
   return 0;

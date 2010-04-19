@@ -2,6 +2,8 @@
 #include <string.h>
 #include "parser.h"
 
+extern char * nullexpr;
+
 int main(void) {
   struct t_parser p;
   struct t_parser *parser = &p;
@@ -26,12 +28,18 @@ int main(void) {
       break;
     }
     parser_addstmt(parser, expr);
+    printf("Statement: %s\n", parser_expr_fmt(expr));
     token = parser_token(parser);
-    printf("Statement %s\n", parser_expr_fmt(expr));
 
     while (token->type != TT_NAME && token->type != TT_EOF) {
       token = parser_next(parser);
-      if (token->type == TT_NAME) parser_pushtoken(parser);
+      if (!token) {
+        fprintf(stderr, "Failed to get next token\n");
+        exit(1);
+      }
+      else if (token->type == TT_NAME) {
+        parser_pushtoken(parser);
+      }
     }
 
   } while (token->type != TT_EOF);
