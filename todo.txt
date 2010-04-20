@@ -1,8 +1,4 @@
 TODO
 
-(X) Parse function calls
-  (X) ExpressionID to expression functions
-( ) Executor
-( ) Dynamic toString memory allocation
-( ) Change scanner to use pushback stream
-( ) Use linebuf for fetching chars
+( ) Assignments, variables
+

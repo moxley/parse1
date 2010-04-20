@@ -80,6 +80,16 @@ struct t_func {
 };
 
 /*
+ * Binomial ( 1 + 1 OR a = b OR a * 9, etc )
+ */
+struct t_binom {
+  struct t_token *op;
+  struct t_expr *left;
+  struct t_expr *right;
+  char *formatbuf;
+}
+
+/*
  * Parser general
  */
 int parser_init(struct t_parser *parser, FILE *in);
@@ -124,5 +134,13 @@ int parser_num_init(struct t_expr *expr);
 char * parser_num_fmt(struct t_expr *expr);
 struct t_expr * parser_num_parse(struct t_parser *parser);
 int parser_num_close(struct t_expr *expr);
+
+/*
+ * Binomial
+ */
+int parser_binom_init(struct t_expr *expr);
+char * parser_binom_fmt(struct t_expr *expr);
+struct t_expr * parser_binom_parse(struct t_parser *parser);
+int parser_binom_close(struct t_expr *expr);
 
 #endif

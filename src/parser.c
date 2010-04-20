@@ -159,14 +159,16 @@ int parser_addstmt(struct t_parser *parser, struct t_expr *stmt) {
   return 0;
 }
 
-//struct t_expr * parser_expr(struct t_parser *parser) {
-//  return parser->expr;
-//}
-
+/*
+ * Get next token
+ */
 struct t_token *parser_next(struct t_parser *parser) {
   return scanner_next(&parser->scanner);
 }
 
+/*
+ * Get the current token.
+ */
 struct t_token *parser_token(struct t_parser *parser) {
   return scanner_token(&parser->scanner);
 }
@@ -178,6 +180,9 @@ void parser_pushtoken(struct t_parser *parser) {
   scanner_push(&parser->scanner);
 }
 
+/*
+ * Convert an expression to a string for inspection.
+ */
 char * parser_expr_fmt(struct t_expr *expr) {
   char scratch_buf[PARSER_SCRATCH_BUF + 1];
   int len;
@@ -215,7 +220,10 @@ char * parser_expr_fmt(struct t_expr *expr) {
 }
 
 /*
- * Parse an expression.
+ * Parse the next expression.
+ *
+ * After calling this function, the parser will point to the
+ * token immediately following the expression.
  */
 struct t_expr * parser_expr_parse(struct t_parser *parser) {
   struct t_token *token;
@@ -230,7 +238,20 @@ struct t_expr * parser_expr_parse(struct t_parser *parser) {
     expr = parser_num_parse(parser);
   }
   else if (token->type == TT_NAME) {
-    expr = parser_fcall_parse(parser);
+    token = parser_next(parser);
+    if (token->type == TT_PARENL) {
+      parser_push(parser);
+      expr = parser_fcall_parse(parser);
+    }
+    else if (token->type == TT_EQUAL) {
+      parser_push(parser);
+      expr = parser_assign_parse(parser);
+    }
+    else {
+      parser_push(parser);
+      fprintf(stderr, "%s(): Unknown expression: TT_NAME, %s\n", __FUNCTION__, token_types[token->type]);
+      return NULL;
+    }
   }
   else {
     expr = &noexpr;
@@ -240,6 +261,9 @@ struct t_expr * parser_expr_parse(struct t_parser *parser) {
   return expr;
 }
 
+/*
+ * Copy an expression.
+ */
 int expr_copy(struct t_expr *dest, struct t_expr *source) {
   dest->type = source->type;
   dest->name = source->name;
@@ -494,5 +518,69 @@ struct t_expr * parser_num_parse(struct t_parser *parser) {
 }
 
 int parser_num_close(struct t_expr *expr) {
+  struct t_expr_num *num;
+
+  if (expr->detail) {
+    num = (struct t_expr_num *) expr->detail;
+    free(num->formatbuf);
+  }
+
   return 0;
 }
+
+int parser_binom_init(struct t_expr *expr) {
+  struct t_binom *binom;
+
+  binom = malloc(sizeof(struct t_binom));
+  binom->left = NULL;
+  binom->right = NULL;
+  binom->op = NULL;
+  expr->detail = (void *) binom;
+
+  return 0;
+}
+
+char * parser_binom_fmt(struct t_expr *expr) {
+  char buf[SCRATCH_BUF_SIZE+1];
+  int len;
+  struct t_binom *binom;
+  char *toobig = "<#binom {TOO_BIG}>";
+  char *empty = "<#binom {EMPTY}>";
+
+  assert(expr->detail);
+  binom = (struct t_binom *) expr->detail;
+  len = snprintf(buf, SCRATCH_BUF_SIZE, "<#binom {op: %s, left: %s, right: %s}>",
+      token_format(binom->token),
+      parser_expr_fmt(binom->left),
+      parser_expr_fmt(binom->right));
+  if (binom->formatbuf) free(binom->formatbuf);
+  if (len > SCRATCH_BUF_SIZE) {
+    binom->formatbuf = malloc(sizeof(char) * (strlen(toobig) + 1));
+    strcpy(binom->formatbuf, toobig);
+  }
+  else {
+    binom->formatbuf = malloc(sizeof(char) * (len + 1));
+    strcpy(binom->formatbuf, buf);
+  }
+
+  return binom->formatbuf;
+}
+
+struct t_expr * parser_binom_parse(struct t_parser *parser) {
+  struct t_binom *binom;
+  return NULL;
+}
+
+int parser_binom_close(struct t_expr *expr) {
+  struct t_binom *binom;
+
+  if (!expr->detail) return 0;
+  binom = expr->detail;
+
+  /* op, left and right should be deallocated by other functions */
+
+  if (binom->formatbuf) free(binom->formatbuf);
+
+  return 0;
+}
+
