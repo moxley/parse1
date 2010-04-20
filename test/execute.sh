@@ -6,3 +6,4 @@ add(1, 2)
 println(5)
 println(add(1, 2))
 EOF
+

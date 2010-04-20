@@ -107,8 +107,6 @@ char * parser_format(struct t_parser *parser) {
 int parser_expr_init(struct t_expr *expr, int type) {
   struct t_expr *tpl;
 
-  if (parser_expr_destroy(expr)) return 1;
-  
   memset(expr, 0, sizeof(struct t_expr));
   tpl = &expression_types[type];
   expr->type = type;

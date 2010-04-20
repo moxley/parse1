@@ -59,7 +59,7 @@ struct t_expr * exec_pop(struct t_exec *exec) {
 
 int exec_close(struct t_exec *exec) {
   struct t_expr *expr, *next;
-  
+
   expr = exec->stack_bottom;
   while (expr) {
     next = expr->next;
@@ -168,11 +168,11 @@ struct t_expr * exec_invoke(struct t_exec *exec, struct t_expr *expr) {
       return NULL;
     }
     else {
+      exec_pop(exec);
       if (res == arg) {
         /*
          * Pull the arg back out of the stack and into the function args
          */
-        exec_pop(exec);
         arg->prev = prev;
         arg->next = next;
       }
@@ -190,11 +190,13 @@ struct t_expr * exec_invoke(struct t_exec *exec, struct t_expr *expr) {
   }
   
   if (func->invoke) {
-    res = malloc(sizeof(struct t_expr));
-    parser_expr_init(res, EXP_NULL);
+    res = calloc(1, sizeof(struct t_expr));
     if (func->invoke(func, call, res)) {
       fprintf(stderr, "(TODO) Error in native function: %s()\n", func->name);
       return NULL;
+    }
+    if (!res->type) {
+      parser_expr_init(res, EXP_NULL);
     }
     exec_push(exec, res);
   }

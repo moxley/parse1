@@ -100,7 +100,9 @@ int main(int argc, char** argv) {
   } while (parser_token(&parser)->type != TT_EOF && i < 8);
   
   parser_close(&parser);
+
   exec_close(&exec);
+
   printf("Done.\n");
   return 0;
 }
