@@ -307,22 +307,21 @@ struct t_expr * parser_fcall_parse(struct t_parser *parser) {
   token = parser_next(parser);
   if (!token) return NULL;
   if (token->type != TT_PARENL) {
-    fprintf(stderr, "(TODO) Syntax error: Expected function opening parenthese '('. Got %s: %s\n", token_types[token->type], token->buf);
+    fprintf(stderr, "(TODO) %s(): Syntax error: Expected function opening parenthese '('. Got %s: %s\n", __FUNCTION__, token_types[token->type], token->buf);
     return NULL;
   }
 
-  while (1) {
+  token = parser_next(parser);
+  if (!token) return NULL;
+  if (token->type == TT_PARENR) {
     token = parser_next(parser);
-    if (!token) return NULL;
-    if (token->type == TT_PARENR) {
-      token = parser_next(parser);
-      break;
-    }
-    else if (token->type == TT_EOF) {
-      fprintf(stderr, "(TODO) Syntax error: Expected function arguments or closing parenthese ')'. Got EOF.\n");
-      return NULL;
-    }
-    else {
+  }
+  else {
+    while (1) {
+      if (token->type == TT_EOF) {
+        fprintf(stderr, "(TODO) (in call to %s) Unexpected end of file", call->name);
+        return NULL;
+      }
       argexpr = parser_expr_parse(parser);
       if (!call->firstarg) {
         call->firstarg = argexpr;
@@ -332,16 +331,20 @@ struct t_expr * parser_fcall_parse(struct t_parser *parser) {
       }
       call->argcount++;
       prev = argexpr;
-    }
 
-    token = parser_next(parser);
-    if (!token) return NULL;
-    if (token->type == TT_PARENR) {
-      parser_pushtoken(parser);
-    }
-    else if (token->type != TT_COMMA) {
-      fprintf(stderr, "(TODO) Syntax error: Expected function argument or closing parenthese ')'. Got: %s\n", token_format(token));
-      return NULL;
+      token = parser_token(parser);
+      if (!token) return NULL;
+      if (token->type == TT_PARENR) {
+        parser_next(parser);
+        break;
+      }
+      else if (token->type != TT_COMMA) {
+        fprintf(stderr, "(TODO) (in call to %s) Syntax error: Expected function argument or closing parenthese ')'. Got: %s\n", call->name, token_format(token));
+        return NULL;
+      }
+      else {
+        parser_next(parser);
+      }
     }
   }
 
@@ -486,6 +489,8 @@ struct t_expr * parser_num_parse(struct t_parser *parser) {
   // Get the numeric value
   num = (struct t_expr_num *) expr->detail;
   num->value = atoi(token->buf);
+  
+  parser_next(parser);
   
   return expr;
 }
