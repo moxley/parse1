@@ -41,9 +41,11 @@ struct t_expr {
   int type;
   char *name;
   int (*init)(struct t_expr *exp);
+  int (*copy)(struct t_expr *dest, struct t_expr *source);
   char * (*format)(struct t_expr *exp);
   struct t_expr * (*parse)(struct t_parser *parser);
   int (*destroy)(struct t_expr *exp);
+  struct t_expr *prev;
   struct t_expr *next;
   void *detail;
   char *formatbuf;
@@ -59,7 +61,6 @@ struct t_fcall {
   struct t_expr *firstarg;
   int argcount;
   char *formatbuf;
-  struct t_expr *ret;
 };
 
 struct t_expr_num {
@@ -72,7 +73,7 @@ struct t_func {
   char *name;
   
   /* Native function */
-  struct t_expr * (*invoke)(struct t_func *func, struct t_fcall *call);
+  int (*invoke)(struct t_func *func, struct t_fcall *call, struct t_expr *res);
 
   /* Local function-- A linked list of statements */
   struct item *first;  

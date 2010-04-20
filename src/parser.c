@@ -17,12 +17,12 @@ char *parser_error_names[] = {
 
 /* Expression types */
 struct t_expr expression_types[] = {
-  {EXP_NONE, "none", NULL, &parser_none_fmt, NULL, NULL},
-  {EXP_ERROR, "error", NULL, NULL, NULL, NULL},
-  {EXP_EOF, "eof", NULL, NULL, NULL, NULL},
-  {EXP_NULL, "null", NULL, NULL, NULL, NULL},
-  {EXP_NUM,  "num", &parser_num_init, &parser_num_fmt, &parser_num_parse, &parser_num_close},
-  {EXP_FCALL, "fcall", &parser_fcall_init, &parser_fcall_fmt, &parser_fcall_parse, &parser_fcall_close}
+  {EXP_NONE, "none", NULL, NULL, &parser_none_fmt, NULL, NULL},
+  {EXP_ERROR, "error", NULL, NULL, NULL, NULL, NULL},
+  {EXP_EOF, "eof", NULL, NULL, NULL, NULL, NULL},
+  {EXP_NULL, "null", NULL, NULL, NULL, NULL, NULL},
+  {EXP_NUM,  "num", &parser_num_init, NULL, &parser_num_fmt, &parser_num_parse, &parser_num_close},
+  {EXP_FCALL, "fcall", &parser_fcall_init, NULL, &parser_fcall_fmt, &parser_fcall_parse, &parser_fcall_close}
 };
 int expr_types_size = sizeof(expression_types);
 
@@ -104,6 +104,32 @@ char * parser_format(struct t_parser *parser) {
   return parser->formatbuf;
 }
 
+int parser_expr_init(struct t_expr *expr, int type) {
+  struct t_expr *tpl;
+
+  if (parser_expr_destroy(expr)) return 1;
+  
+  memset(expr, 0, sizeof(struct t_expr));
+  tpl = &expression_types[type];
+  expr->type = type;
+  expr->name = tpl->name;
+  expr->init = tpl->init;
+  expr->copy = tpl->copy;
+  expr->format = tpl->format;
+  expr->parse = tpl->parse;
+  expr->destroy = tpl->destroy;
+  expr->next = NULL;
+  expr->prev = NULL;
+  
+  if (expr->init) {
+    if (expr->init(expr)) {
+      return 1;
+    }
+  }
+  
+  return 0;
+}
+
 int parser_expr_destroy(struct t_expr *expr) {
   if (expression_types[expr->type].destroy) {
     expression_types[expr->type].destroy(expr);
@@ -116,29 +142,6 @@ int parser_expr_destroy(struct t_expr *expr) {
     free(expr->formatbuf);
     expr->formatbuf = NULL;
   }
-  return 0;
-}
-
-int parser_expr_init(struct t_expr *expr, int type) {
-  struct t_expr *tpl;
-
-  parser_expr_destroy(expr);
-  
-  memset(expr, 0, sizeof(struct t_expr));
-  tpl = &expression_types[type];
-  expr->type = type;
-  expr->name = tpl->name;
-  expr->init = tpl->init;
-  expr->format = tpl->format;
-  expr->parse = tpl->parse;
-  expr->destroy = tpl->destroy;
-  
-  if (expr->init) {
-    if (expr->init(expr)) {
-      return 1;
-    }
-  }
-  
   return 0;
 }
 
@@ -239,6 +242,21 @@ struct t_expr * parser_expr_parse(struct t_parser *parser) {
   return expr;
 }
 
+int expr_copy(struct t_expr *dest, struct t_expr *source) {
+  dest->type = source->type;
+  dest->name = source->name;
+  dest->init = source->init;
+  dest->format = source->format;
+  dest->parse = source->parse;
+  dest->destroy = source->destroy;
+  dest->copy = source->copy;
+  dest->next = NULL;
+  dest->detail = NULL;
+  if (dest->copy) dest->copy(dest, source);
+  dest->formatbuf = NULL;
+  return 0;
+}
+
 char * parser_none_fmt(struct t_expr *expr) {
   assert(EXP_NONE == expr->type);
   snprintf(expr->formatbuf, STATEMENT_FORMAT_BUF_SIZE, "<#expr: {type: none}>");
@@ -256,7 +274,6 @@ int parser_fcall_init(struct t_expr *expr) {
   call->firstarg = NULL;
   call->argcount = 0;
   call->formatbuf = NULL;
-  call->ret = NULL;
   expr->detail = (void *) call;
 
   return 0;

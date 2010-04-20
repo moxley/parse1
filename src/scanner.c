@@ -290,7 +290,12 @@ char * token_format(struct t_token *token) {
   char buf[SCRATCH_BUF_SIZE + 1];
   char *toobig = "<#token TOO_BIG>";
   
-  util_escape_string(esc_buf, SCRATCH_BUF_SIZE, token->buf);
+  if (token->buf) {
+    util_escape_string(esc_buf, SCRATCH_BUF_SIZE, token->buf);
+  }
+  else {
+    strcpy(esc_buf, "");
+  }
   len = snprintf(buf,
            SCRATCH_BUF_SIZE,
            "<#token {type: %s, error: %s, buf: '%s'}>",
@@ -327,6 +332,7 @@ struct t_token * scanner_next(struct t_scanner *scanner) {
     return token;
   }
   
+  c = scanner_c(scanner);
   if (scanner_skip_whitespace(scanner)) return NULL;
   c = scanner_c(scanner);
   
