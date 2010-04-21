@@ -27,7 +27,7 @@ int main(void) {
       fprintf(stderr, "An error occurred during parsing: errno: %d\n", parser->scanner.error);
       break;
     }
-    parser_addstmt(parser, expr);
+    //parser_addstmt(parser, expr);
     printf("Statement: %s\n", parser_expr_fmt(expr));
     token = parser_token(parser);
 

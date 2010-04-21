@@ -80,7 +80,7 @@ int main(int argc, char** argv) {
   }
   
   do {
-    expr = parser_expr_parse(&parser);
+    expr = parser_parse(&parser);
     //printf("Parsed expression: %s\n", parser_expr_fmt(expr));
     res = exec_eval(&exec, expr);
     if (res == NULL) {

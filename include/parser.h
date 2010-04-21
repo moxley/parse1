@@ -20,6 +20,7 @@
 #define EXP_NULL    3
 #define EXP_NUM     4
 #define EXP_FCALL   5
+#define EXP_TERM    6
 
 extern char *parser_keywords[];
 
@@ -33,6 +34,7 @@ struct t_parser {
   int error;
   struct t_expr *first;
   struct t_expr *stmt;
+  struct stack stack;
   char formatbuf[PARSER_FORMAT_BUF_SIZE];
 };
 
@@ -80,14 +82,15 @@ struct t_func {
 };
 
 /*
- * Binomial ( 1 + 1 OR a = b OR a * 9, etc )
+ * Term: factor [ ( "*" OR "/" ) ]
  */
 struct t_binom {
-  struct t_token *op;
+  struct t_token *sign;
   struct t_expr *left;
+  struct t_token *op;
   struct t_expr *right;
   char *formatbuf;
-}
+};
 
 /*
  * Parser general
@@ -103,15 +106,27 @@ char * parser_format(struct t_parser *parser);
 struct t_token * parser_next(struct t_parser *parser);
 struct t_token * parser_token(struct t_parser *parser);
 void parser_pushtoken(struct t_parser *parser);
+struct t_token * parser_poptoken(struct t_parser *parser);
 
 /*
  * Expressions
  */
 int parser_expr_init(struct t_expr *expr, int type);
 int parser_addstmt(struct t_parser *parser, struct t_expr *stmt);
-struct t_expr * parser_expr_parse(struct t_parser *parser);
+int parser_pushexpr(parser, struct t_expr *expr);
+struct t_expr * parser_popexpr(struct t_parser *parser);
 char * parser_expr_fmt(struct t_expr *expr);
 int parser_expr_destroy(struct t_expr *expr);
+
+/*
+ * Parse Expressions
+ */
+struct t_expr * parser_parse(struct t_parser *parser);
+struct t_expr * parser_parse_stmt(struct t_parser *parser);
+struct t_expr * parse_parse_assignment(struct t_parser *parser);
+struct t_expr * parser_parse_simple(struct t_parser *parser);
+struct t_expr * parser_parse_term(struct t_parser *parser);
+struct t_expr * parser_parse_factor(struct t_parser *parser);
 
 /*
  * No expression
@@ -142,5 +157,13 @@ int parser_binom_init(struct t_expr *expr);
 char * parser_binom_fmt(struct t_expr *expr);
 struct t_expr * parser_binom_parse(struct t_parser *parser);
 int parser_binom_close(struct t_expr *expr);
+
+/*
+ * Term
+ */
+int parser_term_init(struct t_expr *expr);
+char * parser_term_fmt(struct t_expr *expr);
+struct t_expr * parser_term_parse(struct t_parser *parser);
+int parser_term_close(struct t_expr *expr);
 
 #endif

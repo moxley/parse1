@@ -41,3 +41,48 @@ void llist_remove(struct item *item) {
   if (item->next) item->next->prev = item->prev;
 }
 
+void stack_init(struct stack *stack) {
+  stack->bottom = NULL;
+  stack->top = NULL;
+  stack->size = 0;
+}
+
+void stack_empty(struct stack *stack) {
+  if (stack->bottom) llist_free(stack->bottom);
+  stack->size = 0;
+}
+
+int stack_push(struct stack *stack, void *item) {
+  struct item *stackitem;
+  
+  if (!stack->bottom) {
+    stack->bottom = llist_newitem(item);
+    stack->top = stack->bottom;
+  }
+  else {
+    stackitem = llist_newitem(item);
+    llist_append(stack->top, stackitem);
+    stack->top = stackitem;
+  }
+  return ++stack->size;
+}
+
+void *stack_pop(struct stack *stack) {
+  void *value;
+  struct item *top;
+  
+  if (!stack->top) {
+    return NULL;
+  }
+  value = stack->top->value;
+  top = stack->top;
+  stack->top = top->prev;
+  if (!stack->top) stack->bottom = NULL;
+  llist_remove(top);
+  
+  return value;
+}
+
+void *stack_top(struct stack *stack) {
+  return stack->top ? stack->top->value : NULL;
+}

@@ -13,7 +13,7 @@ int main(void) {
 
   do {
     printf("Parsing statement:\n");
-    expr = parser_expr_parse(&parser);
+    expr = parser_parse(&parser);
     if (!expr) {
       fprintf(stderr, "  Failed to get expression\n");
       break;

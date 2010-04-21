@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <util.h>
+#include "util.h"
 
 #define ERR_NONE  0
 #define ERR_READ  1
@@ -85,6 +85,7 @@ struct t_scanner {
   struct t_token *first;  // First of all tokens
   struct t_token *token;  // Last of all tokens, and the current token
   struct t_token unknown;
+  struct stack stack;
   char *formatbuf;
 };
 
@@ -108,6 +109,7 @@ char * token_format(struct t_token *token);
 struct t_token * scanner_next(struct t_scanner *scanner);
 char * scanner_token_char(struct t_scanner *scanner);
 void scanner_push(struct t_scanner *scanner);
+struct t_token * scanner_pop(struct t_scanner *scanner);
 struct t_token * scanner_token(struct t_scanner *scanner);
 
 struct t_token * scanner_parse_eol(struct t_scanner *scanner);

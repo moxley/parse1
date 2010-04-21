@@ -395,6 +395,14 @@ struct t_token * scanner_token(struct t_scanner *scanner) {
  */
 void scanner_push(struct t_scanner *scanner) {
   scanner->stack_size++;
+  assert(0); // Need to implement
+}
+
+struct t_token * scanner_pop(struct t_scanner *scanner) {
+  struct t_token *token;
+  assert(0); // Need to implement
+  
+  return token;
 }
 
 struct t_token * scanner_parse_eol(struct t_scanner *scanner) {
