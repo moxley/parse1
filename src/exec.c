@@ -10,91 +10,58 @@ struct item *lastfunc = NULL;
  * Initialize an execution environment.
  */
 int exec_init(struct t_exec *exec) {
-  exec->stack_bottom = NULL;
-  exec->stack_top = NULL;
-  exec->stack_size = 0;
+  list_init(&exec->statements);
+  list_init(&exec->stack);
+  list_init(&exec->functions);
+  return 0;
+}
+
+int exec_close(struct t_exec *exec) {
+  struct item *item;
+  
+  item = exec->statements.first;
+  while (item) {
+    parser_expr_destroy((struct t_expr *) item->value);
+    free(item->value);
+    item = item->next;
+  }
+
+  list_empty(&exec->statements);
+  list_empty(&exec->stack);
+  list_empty(&exec->functions);
+  
   return 0;
 }
 
 struct t_expr * exec_push(struct t_exec *exec, struct t_expr *expr) {
   assert(exec);
   assert(expr);
-  if (!exec->stack_bottom) {
-    exec->stack_bottom = expr;
-    exec->stack_top = expr;
-    exec->stack_size = 1;
-    expr->prev = NULL;
-  }
-  else {
-    exec->stack_top->next = expr;
-    expr->prev = exec->stack_top;
-    exec->stack_top = expr;
-    exec->stack_size++;
-  }
-  expr->next = NULL;
+  
+  list_push(&exec->stack, expr);
+  
   return expr;
 }
 
 struct t_expr * exec_pop(struct t_exec *exec) {
-  struct t_expr *expr;
-  
   assert(exec);
-  if (!exec->stack_top) {
-    return NULL;
-  }
-  expr = exec->stack_top;
-  exec->stack_top = expr->prev;
-  if (exec->stack_top) {
-    exec->stack_top->next = NULL;
-  }
-  else {
-    exec->stack_bottom = NULL;
-  }
-  exec->stack_size--;
-  expr->prev = NULL;
-  assert(!expr->next);
-  
-  return expr;
-}
-
-int exec_close(struct t_exec *exec) {
-  struct t_expr *expr, *next;
-
-  expr = exec->stack_bottom;
-  while (expr) {
-    next = expr->next;
-    parser_expr_destroy(expr);
-    free(expr);
-  }
-  
-  return 0;
+  return (struct t_expr *) list_pop(&exec->stack);
 }
 
 /*
  * Add a function.
  */
-void exec_addfunc(struct t_func *func) {
-  struct item *item;
-  
-  if (!lastfunc) {
-    firstfunc = llist_newitem((void *) func);
-    lastfunc = firstfunc;
-  }
-  else {
-    item = llist_newitem(func);
-    llist_append(lastfunc, item);
-    lastfunc = item;
-  }
+void exec_addfunc(struct t_exec *exec, struct t_func *func) {
+  list_push(&exec->functions, func);
 }
 
 /*
  * Find a function by name
  */
-struct t_func * exec_funcbyname(char *name) {
+struct t_func * exec_funcbyname(struct t_exec *exec, char *name) {
   struct item *item;
   struct t_func *func;
   
-  item = firstfunc;
+  item = exec->functions.first;
   while (item) {
     func = (struct t_func *) item->value;
     if (strcmp(func->name, name) == 0) {
@@ -148,7 +115,7 @@ struct t_expr * exec_invoke(struct t_exec *exec, struct t_expr *expr) {
   struct t_expr *prev, *next;
   
   call = (struct t_fcall *) expr->detail;
-  func = exec_funcbyname(call->name);
+  func = exec_funcbyname(exec, call->name);
   if (!func) {
     fprintf(stderr, "(TODO) %s: Function %s() is not defined.\n", __FUNCTION__, call->name);
     return NULL;

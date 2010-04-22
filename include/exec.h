@@ -9,9 +9,9 @@ extern struct item *lastfunc;
 
 /* Execution environment */
 struct t_exec {
-  struct t_expr *stack_bottom;
-  struct t_expr *stack_top;
-  int stack_size;
+  struct list statements;
+  struct list stack;
+  struct list functions;
 };
 
 int exec_init(struct t_exec *exec);
@@ -21,8 +21,8 @@ struct t_expr * exec_pop(struct t_exec *exec);
 
 struct t_expr * exec_eval(struct t_exec *exec, struct t_expr *expr);
 
-void exec_addfunc(struct t_func *func);
-struct t_func * exec_funcbyname(char *name);
+void exec_addfunc(struct t_exec *exec, struct t_func *func);
+struct t_func * exec_funcbyname(struct t_exec *exec, char *name);
 struct t_expr * exec_invoke(struct t_exec *exec, struct t_expr *expr);
 
 #endif

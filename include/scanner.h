@@ -65,12 +65,7 @@ struct t_char {
 struct t_token {
   int type;
   char *buf;
-  int buf_i;
   int error;
-  int row;
-  int col;
-  struct t_token *prev;
-  struct t_token *next;
   char *formatbuf;
 };
 
@@ -78,14 +73,13 @@ struct t_scanner {
   FILE *in;
   int error;
   int debug;
-  int token_count;
-  int stack_size;
   struct t_char *current;
-  struct t_token *first;  // First of all tokens
   struct t_token *token;  // Last of all tokens, and the current token
   struct t_token unknown;
-  struct list tokens;
-  struct list pushback;
+  struct list c_list;
+  struct list c_pushback;
+  struct list t_list;
+  struct list t_pushback;
   char *formatbuf;
 };
 

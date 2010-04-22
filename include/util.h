@@ -25,5 +25,7 @@ int list_size(struct list *list);
 int list_push(struct list *list, void *item);
 void *list_pop(struct list *list);
 void *list_top(struct list *list);
+void *list_first(struct list *list);
+void *list_last(struct list *list);
 
 #endif

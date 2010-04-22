@@ -64,15 +64,15 @@ int main(int argc, char** argv) {
   /* Add a function definition */
   func_hello.name = "hello";
   func_hello.invoke = &hello;
-  exec_addfunc(&func_hello);
+  exec_addfunc(&exec, &func_hello);
 
   func_print.name = "println";
   func_print.invoke = &myprintln;
-  exec_addfunc(&func_print);
+  exec_addfunc(&exec, &func_print);
 
   func_add.name = "add";
   func_add.invoke = &myadd;
-  exec_addfunc(&func_add);
+  exec_addfunc(&exec, &func_add);
   
   if (parser_init(&parser, stdin)) {
     fprintf(stderr, "Failed to initialize parser\n");

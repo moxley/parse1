@@ -65,8 +65,10 @@ int scanner_init(struct t_scanner *scanner, FILE *in) {
 
   _scanner_init_token(scanner, &scanner->unknown, TT_UNKNOWN);
 
-  list_init(&scanner->tokens);
-  list_init(&scanner->pushback);
+  list_init(&scanner->t_list);
+  list_init(&scanner->t_pushback);
+  list_init(&scanner->c_list);
+  list_init(&scanner->c_pushback);
 
   return 0;
 }
@@ -76,9 +78,11 @@ void _scanner_init_token(struct t_scanner *scanner, struct t_token *token, int t
   
   c = scanner_c(scanner);
   memset(token, 0, sizeof(struct t_token));
+  
   token->type = type;
-  token->row = c->row;
-  token->col = c->col;
+  token->buf = NULL;
+  token->error = 0;
+  token->formatbuf = NULL;
 }
 
 struct t_token * scanner_init_token(struct t_scanner *scanner, int type) {
@@ -86,17 +90,9 @@ struct t_token * scanner_init_token(struct t_scanner *scanner, int type) {
   
   token = malloc(sizeof(struct t_token));
   _scanner_init_token(scanner, token, type);
-
-  if (scanner->token) {
-    scanner->token->next = token;
-    token->prev = scanner->token;
-  }
-  else {
-    scanner->first = token;
-  }
   
+  list_push(&scanner->t_list, token);
   scanner->token = token;
-  scanner->token_count++;
   
   return scanner->token;
 }
@@ -111,12 +107,7 @@ void token_copy(struct t_token *dest, const struct t_token *source) {
     dest->buf = malloc(sizeof(char) * (strlen(source->buf) + 1));
     strcpy(dest->buf, source->buf);
   }
-  dest->buf_i = source->buf_i;
   dest->error = source->error;
-  dest->row = source->row;
-  dest->col = source->col;
-  dest->prev = source->prev;
-  dest->next = source->next;
   if (dest->formatbuf) free(dest->formatbuf);
   if (!source->formatbuf) {
 	dest->formatbuf = NULL;
@@ -129,19 +120,26 @@ void token_copy(struct t_token *dest, const struct t_token *source) {
 
 void scanner_close(struct t_scanner *scanner) {
   struct t_token *t;
-  struct t_token *next;
+  struct t_char *c;
   
   fclose(scanner->in);
   
-  t = scanner->first;
-  while (t) {
-    next = t->next;
-    free(t);
-    t = next;
+  c = (struct t_char *) list_first(&scanner->c_list);
+  while (c) {
+    if (c->formatbuf) free(c->formatbuf);
+    free(c);
   }
 
-  list_empty(&scanner->tokens);
-  list_empty(&scanner->pushback);
+  t = (struct t_token *) list_first(&scanner->t_list);
+  while (t) {
+    if (t->buf) free(t->buf);
+    if (t->formatbuf) free(t->formatbuf);
+  }
+
+  list_empty(&scanner->c_list);
+  list_empty(&scanner->c_pushback);
+  list_empty(&scanner->t_list);
+  list_empty(&scanner->t_pushback);
 }
 
 int scanner_nextch(struct t_scanner *scanner) {
@@ -150,20 +148,13 @@ int scanner_nextch(struct t_scanner *scanner) {
 
 struct t_char * scanner_nextc(struct t_scanner *scanner) {
   struct t_char *c;
-  struct item *top;
   
-  if (scanner->pushback) {
-    top = scanner->pushback;
-    scanner->pushback = top->prev;
-    if (scanner->pushback) {
-      scanner->pushback->next = NULL;
-    }
-    scanner->current = (struct t_char *) top->value;
-    free(top);
+  if (list_size(&scanner->c_pushback) > 0) {
+    scanner->current = (struct t_char *) list_pop(&scanner->c_pushback);
   }
   else {
     c = malloc(sizeof(struct t_char));
-	memset(c, 0, sizeof(struct t_char));
+    memset(c, 0, sizeof(struct t_char));
     c->c = getc(scanner->in);
     if (!scanner->current || (scanner->current->c == '\r' && c->c != '\n') || scanner->current->c == '\n') {
       c->col = 0;
@@ -201,18 +192,7 @@ int scanner_ch(struct t_scanner *scanner) {
  * Push the current character back into the stream.
  */
 int scanner_pushc(struct t_scanner *scanner) {
-  struct item *item;
-  
-  item = llist_newitem(scanner->current);
-  if (!scanner->pushback) {
-    scanner->pushback = item;
-  }
-  else {
-    scanner->pushback->next = item;
-    item->prev = scanner->pushback;
-    scanner->pushback = item;
-  }
-  
+  list_push(&scanner->c_pushback, scanner->current);
   return 0;
 }
 
@@ -262,14 +242,14 @@ char * scanner_format(struct t_scanner *scanner) {
     current = &blank;
   }
   
-  len = snprintf(buf, SCRATCH_BUF_SIZE, "<#scanner: {c: %s, token: %s, row: %d, col: '%d', debug: %d, token_count: %d, stack_size: %d, error: %d}>",
+  len = snprintf(buf, SCRATCH_BUF_SIZE, "<#scanner: {c: %s, token: %s, row: %d, col: '%d', debug: %d, token_count: %d, pushback_size: %d, error: %d}>",
      char_format(scanner->current),
      token_format(scanner->token),
      current->row,
      current->col,
      scanner->debug,
-     scanner->token_count,
-     scanner->stack_size,
+     list_size(&scanner->t_list),
+     list_size(&scanner->t_pushback),
      scanner->error);
   if (len > SCRATCH_BUF_SIZE) {
     allocsize = strlen(toobig) + 1;
@@ -326,15 +306,10 @@ char * token_format(struct t_token *token) {
  */
 struct t_token * scanner_next(struct t_scanner *scanner) {
   struct t_token *token;
-  int i;
   struct t_char *c;
   
-  if (scanner->stack_size > 0) {
-    token = scanner->token;
-    for (i=1; i < scanner->stack_size; i++) {
-      token = token->prev;
-    }
-    scanner->stack_size--;
+  if (list_size(&scanner->t_pushback) > 0) {
+    token = (struct t_token *) list_pop(&scanner->t_pushback);
     return token;
   }
   
@@ -400,16 +375,15 @@ struct t_token * scanner_token(struct t_scanner *scanner) {
  * Push the token into the pushback stack.
  */
 void scanner_push(struct t_scanner *scanner) {
-  scanner->token = list_pop(&scanner->tokens);
-  list_push(&scanner->pushback, scanner->token);
+  list_push(&scanner->t_pushback, scanner->token);
 }
 
 /*
  * Pop a token from the pushback stack.
  */
 struct t_token * scanner_pop(struct t_scanner *scanner) {
-  scanner->token = list_pop(&scanner->pushback);
-  list_push(&scanner->tokens, scanner->token);
+  scanner->token = list_pop(&scanner->t_pushback);
+  return scanner->token;
 }
 
 struct t_token * scanner_parse_eol(struct t_scanner *scanner) {
