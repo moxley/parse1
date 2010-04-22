@@ -82,6 +82,8 @@ void _scanner_init_token(struct t_scanner *scanner, struct t_token *token, int t
   token->type = type;
   token->buf = NULL;
   token->error = 0;
+  token->row = c->row;
+  token->col = c->col;
   token->formatbuf = NULL;
 }
 
@@ -108,6 +110,8 @@ void token_copy(struct t_token *dest, const struct t_token *source) {
     strcpy(dest->buf, source->buf);
   }
   dest->error = source->error;
+  dest->row = source->row;
+  dest->col = source->col;
   if (dest->formatbuf) free(dest->formatbuf);
   if (!source->formatbuf) {
 	dest->formatbuf = NULL;
@@ -242,11 +246,9 @@ char * scanner_format(struct t_scanner *scanner) {
     current = &blank;
   }
   
-  len = snprintf(buf, SCRATCH_BUF_SIZE, "<#scanner: {c: %s, token: %s, row: %d, col: '%d', debug: %d, token_count: %d, pushback_size: %d, error: %d}>",
+  len = snprintf(buf, SCRATCH_BUF_SIZE, "<#scanner: {c: %s, token: %s, debug: %d, token_count: %d, pushback_size: %d, error: %d}>",
      char_format(scanner->current),
      token_format(scanner->token),
-     current->row,
-     current->col,
      scanner->debug,
      list_size(&scanner->t_list),
      list_size(&scanner->t_pushback),
@@ -284,9 +286,11 @@ char * token_format(struct t_token *token) {
   }
   len = snprintf(buf,
            SCRATCH_BUF_SIZE,
-           "<#token {type: %s, error: %s, buf: '%s'}>",
+           "<#token {type: %s, error: %s, row: %d, col: %d, buf: '%s'}>",
            token_types[token->type],
            parse_error_names[token->error],
+		   token->row,
+		   token->col,
            esc_buf);
   if (token->formatbuf) free(token->formatbuf);
   if (len > SCRATCH_BUF_SIZE) {

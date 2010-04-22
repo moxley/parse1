@@ -1,0 +1,13 @@
+a + b * c -> mul(b, c); add(a, pop())
+a + b * c + d -> mul(b, c); add(a, pop()), add(pop(), d)
+func() + a * b -> mul(a, b); func(); add(pop(), pop())
+a * b + func() -> mul(a, b); func(); swap(); add(pop(), pop())
+
+if a:
+  funcA()
+else:
+  funcB()
+end
+
+-> jmpz('else'); funcA(); else: funcB(); end:
+

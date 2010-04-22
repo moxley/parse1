@@ -9,7 +9,6 @@ extern struct item *lastfunc;
 
 /* Execution environment */
 struct t_exec {
-  struct list statements;
   struct list stack;
   struct list functions;
 };

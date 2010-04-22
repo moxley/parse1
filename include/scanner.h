@@ -66,6 +66,8 @@ struct t_token {
   int type;
   char *buf;
   int error;
+  int row;
+  int col;
   char *formatbuf;
 };
 

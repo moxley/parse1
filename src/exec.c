@@ -10,26 +10,14 @@ struct item *lastfunc = NULL;
  * Initialize an execution environment.
  */
 int exec_init(struct t_exec *exec) {
-  list_init(&exec->statements);
   list_init(&exec->stack);
   list_init(&exec->functions);
   return 0;
 }
 
 int exec_close(struct t_exec *exec) {
-  struct item *item;
-  
-  item = exec->statements.first;
-  while (item) {
-    parser_expr_destroy((struct t_expr *) item->value);
-    free(item->value);
-    item = item->next;
-  }
-
-  list_empty(&exec->statements);
   list_empty(&exec->stack);
   list_empty(&exec->functions);
-  
   return 0;
 }
 
