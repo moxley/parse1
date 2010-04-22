@@ -65,6 +65,9 @@ int scanner_init(struct t_scanner *scanner, FILE *in) {
 
   _scanner_init_token(scanner, &scanner->unknown, TT_UNKNOWN);
 
+  list_init(&scanner->tokens);
+  list_init(&scanner->pushback);
+
   return 0;
 }
 
@@ -136,6 +139,9 @@ void scanner_close(struct t_scanner *scanner) {
     free(t);
     t = next;
   }
+
+  list_empty(&scanner->tokens);
+  list_empty(&scanner->pushback);
 }
 
 int scanner_nextch(struct t_scanner *scanner) {
@@ -391,18 +397,19 @@ struct t_token * scanner_token(struct t_scanner *scanner) {
 }
 
 /*
- * Push the token back into the stream.
+ * Push the token into the pushback stack.
  */
 void scanner_push(struct t_scanner *scanner) {
-  scanner->stack_size++;
-  assert(0); // Need to implement
+  scanner->token = list_pop(&scanner->tokens);
+  list_push(&scanner->pushback, scanner->token);
 }
 
+/*
+ * Pop a token from the pushback stack.
+ */
 struct t_token * scanner_pop(struct t_scanner *scanner) {
-  struct t_token *token;
-  assert(0); // Need to implement
-  
-  return token;
+  scanner->token = list_pop(&scanner->pushback);
+  list_push(&scanner->tokens, scanner->token);
 }
 
 struct t_token * scanner_parse_eol(struct t_scanner *scanner) {

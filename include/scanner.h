@@ -80,12 +80,12 @@ struct t_scanner {
   int debug;
   int token_count;
   int stack_size;
-  struct item *pushback;
   struct t_char *current;
   struct t_token *first;  // First of all tokens
   struct t_token *token;  // Last of all tokens, and the current token
   struct t_token unknown;
-  struct stack stack;
+  struct list tokens;
+  struct list pushback;
   char *formatbuf;
 };
 

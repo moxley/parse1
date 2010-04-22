@@ -34,7 +34,7 @@ struct t_parser {
   int error;
   struct t_expr *first;
   struct t_expr *stmt;
-  struct stack stack;
+  //struct list list;
   char formatbuf[PARSER_FORMAT_BUF_SIZE];
 };
 
@@ -113,7 +113,7 @@ struct t_token * parser_poptoken(struct t_parser *parser);
  */
 int parser_expr_init(struct t_expr *expr, int type);
 int parser_addstmt(struct t_parser *parser, struct t_expr *stmt);
-int parser_pushexpr(parser, struct t_expr *expr);
+int parser_pushexpr(struct t_parser *parser, struct t_expr *expr);
 struct t_expr * parser_popexpr(struct t_parser *parser);
 char * parser_expr_fmt(struct t_expr *expr);
 int parser_expr_destroy(struct t_expr *expr);

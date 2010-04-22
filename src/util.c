@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "util.h"
@@ -41,48 +42,56 @@ void llist_remove(struct item *item) {
   if (item->next) item->next->prev = item->prev;
 }
 
-void stack_init(struct stack *stack) {
-  stack->bottom = NULL;
-  stack->top = NULL;
-  stack->size = 0;
+void list_init(struct list *list) {
+  list->first = NULL;
+  list->last = NULL;
+  list->size = 0;
 }
 
-void stack_empty(struct stack *stack) {
-  if (stack->bottom) llist_free(stack->bottom);
-  stack->size = 0;
+void list_empty(struct list *list) {
+  if (list->first) llist_free(list->first);
+  list->size = 0;
 }
 
-int stack_push(struct stack *stack, void *item) {
-  struct item *stackitem;
+int list_size(struct list *list) {
+  return list->size;
+}
+
+int list_push(struct list *list, void *item) {
+  struct item *listitem;
+
+  printf("Top of list_push()\n");
   
-  if (!stack->bottom) {
-    stack->bottom = llist_newitem(item);
-    stack->top = stack->bottom;
+  if (!list->first) {
+    list->first = llist_newitem(item);
+    list->last = list->first;
   }
   else {
-    stackitem = llist_newitem(item);
-    llist_append(stack->top, stackitem);
-    stack->top = stackitem;
+    listitem = llist_newitem(item);
+    llist_append(list->last, listitem);
+    list->last = listitem;
   }
-  return ++stack->size;
+  return ++list->size;
 }
 
-void *stack_pop(struct stack *stack) {
+void *list_pop(struct list *list) {
   void *value;
-  struct item *top;
+  struct item *last;
   
-  if (!stack->top) {
+  if (!list->last) {
     return NULL;
   }
-  value = stack->top->value;
-  top = stack->top;
-  stack->top = top->prev;
-  if (!stack->top) stack->bottom = NULL;
-  llist_remove(top);
+  value = list->last->value;
+  last = list->last;
+  list->last = last->prev;
+  if (!list->last) list->first = NULL;
+  llist_remove(last);
+  free(last);
+  list->size--;
   
   return value;
 }
 
-void *stack_top(struct stack *stack) {
-  return stack->top ? stack->top->value : NULL;
+void *list_last(struct list *list) {
+  return list->last ? list->last->value : NULL;
 }

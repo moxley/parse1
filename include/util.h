@@ -7,22 +7,23 @@ struct item {
   struct item *prev;
 };
 
-struct item * llist_newitem(void *value);
-void llist_free(struct item *first);
-void llist_prepend(struct item *item, struct item *newitem);
-void llist_append(struct item *item, struct item *newitem);
-void llist_remove(struct item *item);
-
-struct stack {
-  struct item *bottom;
-  struct item *top;
+struct list {
+  struct item *first;
+  struct item *last;
   int size;
 };
 
-void stack_init(struct stack *stack);
-void stack_empty(struct stack *stack);
-int stack_push(struct stack *stack, void *item);
-void *stack_pop(struct stack *stack);
-void *stack_top(struct stack *stack);
+//struct item * llist_newitem(void *value);
+//void llist_free(struct item *first);
+//void llist_prepend(struct item *item, struct item *newitem);
+//void llist_append(struct item *item, struct item *newitem);
+//void llist_remove(struct item *item);
+
+void list_init(struct list *list);
+void list_empty(struct list *list);
+int list_size(struct list *list);
+int list_push(struct list *list, void *item);
+void *list_pop(struct list *list);
+void *list_top(struct list *list);
 
 #endif

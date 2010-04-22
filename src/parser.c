@@ -160,11 +160,13 @@ int parser_addstmt(struct t_parser *parser, struct t_expr *stmt) {
   return 0;
 }
 
-int parser_pushexpr(struct t_parser *parser) {
+int parser_pushexpr(struct t_parser *parser, struct t_expr *expr) {
+  assert(0); // Not implemented
   return 0;
 }
 
 struct t_expr * parser_popexpr(struct t_parser *parser) {
+  assert(0); // Not implemented
   return NULL;
 }
 
@@ -343,8 +345,13 @@ struct t_expr * parser_parse_factor(struct t_parser *parser) {
       expr = parser_term_parse(parser);
     }
     else {
-      parser_pushexpr(parser);
       fprintf(stderr, "%s(): Unknown expression: TT_NAME, %s\n", __FUNCTION__, token_types[token->type]);
+      while (token->type != TT_EOL && token->type != TT_EOF) {
+        token = parser_next(parser);
+        if (token->type == TT_EOL) {
+          token = parser_next(parser);
+        }
+      }
       return NULL;
     }
   }
@@ -641,12 +648,11 @@ char * parser_binom_fmt(struct t_expr *expr) {
   int len;
   struct t_binom *binom;
   char *toobig = "<#binom {TOO_BIG}>";
-  char *empty = "<#binom {EMPTY}>";
 
   assert(expr->detail);
   binom = (struct t_binom *) expr->detail;
   len = snprintf(buf, SCRATCH_BUF_SIZE, "<#binom {op: %s, left: %s, right: %s}>",
-      token_format(binom->token),
+      token_format(binom->op),
       parser_expr_fmt(binom->left),
       parser_expr_fmt(binom->right));
   if (binom->formatbuf) free(binom->formatbuf);
@@ -663,7 +669,7 @@ char * parser_binom_fmt(struct t_expr *expr) {
 }
 
 struct t_expr * parser_binom_parse(struct t_parser *parser) {
-  struct t_binom *binom;
+  //struct t_binom *binom;
   return NULL;
 }
 
