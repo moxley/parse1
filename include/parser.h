@@ -35,6 +35,9 @@
 #define I_SUB       4
 #define I_MUL       5
 #define I_DIV       6
+#define I_ASSIGN    7
+#define I_EQ        8
+#define I_NE        9
 
 extern char *parser_keywords[];
 
@@ -135,6 +138,22 @@ struct t_token * parser_next(struct t_parser *parser);
 struct t_token * parser_token(struct t_parser *parser);
 void parser_pushtoken(struct t_parser *parser);
 struct t_token * parser_poptoken(struct t_parser *parser);
+
+int parse(struct t_parser *parser);
+int parse_stmt(struct t_parser *parser);
+int parse_if(struct t_parser *parser);
+int parse_assign(struct t_parser *parser);
+int compare_multiple_strings(const char *source, char **list);
+int parse_expr(struct t_parser *parser);
+int parse_simple(struct t_parser *parser);
+int parse_term(struct t_parser *parser);
+int parse_factor(struct t_parser *parser);
+int parse_num(struct t_parser *parser);
+int parse_name(struct t_parser *parser);
+
+int create_biop(int type);
+int create_push(struct t_value *value);
+struct t_value * create_num_from_int(int v);
 
 /*
  * Expressions

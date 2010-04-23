@@ -41,7 +41,7 @@ int parser_init(struct t_parser *parser, FILE *in) {
   parser->errors[0] = (struct t_parse_error *) 0;
   parser->error = PARSER_ERR_NONE;
   if (scanner_init(&(parser->scanner), in)) return 1;
-  list_init(&parser.output);
+  list_init(&parser->output);
   return 0;
 }
 
@@ -70,7 +70,7 @@ int parser_close(struct t_parser *parser) {
   }
   
   /* Free the output */
-  item = list_first(&parser.output);
+  item = list_first(&parser->output);
   while (item) {
     free(item->value);
   }
@@ -248,8 +248,8 @@ char * parser_expr_fmt(struct t_expr *expr) {
  * After calling this function, the parser will point to the
  * token immediately following the expression.
  */
-//struct t_expr * parser_parse(struct t_parser *parser) {
-//  struct t_expr *expr = NULL;
+struct t_expr * parser_parse(struct t_parser *parser) {
+  struct t_expr *expr = NULL;
 //  struct t_token *token;
 //
 //  token = parser_token(parser);
@@ -275,49 +275,46 @@ char * parser_expr_fmt(struct t_expr *expr) {
 //    token = parser_next(parser);
 //  }
 //  
-//  return expr;
-//}
+  return expr;
+}
 
-struct t_expr * parse(struct t_parser *parser)
+int parse(struct t_parser *parser)
 {
   struct t_token *token = NULL;
-  
-  while (!token && token->type != TT_EOL && token->type != TT_SEMI) {
-    token = parser_next(parser);
-    if (!parse_stmt(parser)) return 0;
+    
+  token = parser_token(parser);
+  printf("Top of parse() %s\n", token_format(token));
+
+  do {
+    if (parse_stmt(parser) < 0) return -1;
     token = parser_token(parser);
-  }
+  } while (token->type == TT_EOL || token->type == TT_SEMI);
+
+  printf("End token: %s\n", token_format(token));
   
   if (token->type != TT_EOF) {
     fprintf(stderr, "Unexpected token: %s", token_format(token));
     return 0;
   }
   
-  return &nullexpr;
+  return 0;
 }
 
-struct t_expr * parse_stmt(struct t_parser *parser) {
+int parse_stmt(struct t_parser *parser)
+{
   struct t_token *token = NULL;
   
   token = parser_token(parser);
-  if (token->type == TT_NAME && strcmp(token->buf, "set") == 0) {
-    parse_assign(parser);
-    token = parser_token(parser);
-    if (token->type != TT_EQUAL) {
-      return &nullexpr;
-    }
-    while (token->type == TT_EQUAL) {
-      token = parser_next(parser);
-      parse_simple(parser);
-      create_biop(token);
-      token = token();
-    }
-  }
-  else if (t->type is TT_NAME && strcmp(token->buf, "if") == 0) {
-    parse_if(parser);
+  printf("parse_stmt(). %s\n", token_format(token));
+  
+  parse_expr(parser);
+  token = parser_token(parser);
+  if (token->type == TT_EQUAL) {
+    token = parser_next(parser);
+    if (parse_expr(parser) < 0) return -1;
   }
 
-  return &nullexpr;
+  return 0;
 }
 
 //struct t_expr * parser_parse_stmt(struct t_parser *parser) {
@@ -342,33 +339,36 @@ struct t_expr * parse_stmt(struct t_parser *parser) {
 //  return expr;
 //}
 
-struct t_expr * parser_parse_if(struct t_parser *parser) {
-  return NULL;
+int parse_if(struct t_parser *parser)
+{
+  return -1;
 }
 
-struct t_expr * parse_parse_assignment(struct t_parser *parser) {
-  return NULL;
-}
+//struct t_expr * parse_parse_assignment(struct t_parser *parser) {
+//  return NULL;
+//}
 
-struct t_expr * parse_assign(struct t_parser *parser) {
+int parse_assign(struct t_parser *parser)
+{
   struct t_token *token;
   
-  if (!parse_expr(parser)) return NULL;
+  if (parse_expr(parser) < 0) return -1;
   token = parser_token(parser);
   if (token->type != TT_EQUAL) {
-    return &nullexpr;
+    return 0;
   }
+  
   while (token->type == TT_EQUAL) {
     token = parser_next(parser);
-    if (!parse_simple(parser)) return NULL;
-    create_biop(token);
+    if (parse_simple(parser) < 0) return -1;
+    create_biop(I_ASSIGN);
     token = parser_token(parser);
   }
   
-  return &nullexpr;
+  return 0;
 }
 
-int compare_multiple_strings(const char *source, const char **list)
+int compare_multiple_strings(const char *source, char **list)
 {
   int i;
   for (i=0; list[i]; i++) {
@@ -377,55 +377,72 @@ int compare_multiple_strings(const char *source, const char **list)
   return 0;
 }
 
-struct t_expr * parse_expr(struct t_parser *parser)
+int parse_expr(struct t_parser *parser)
 {
-  char *ops[] = {"==", "!=", "<", ">", "<=", ">=", "\0"};
-  if (!parse_simple(parser)) return NULL;
+  //char *ops[] = {"==", "!=", "<", ">", "<=", ">=", "\0"};
+  char *ops[] = {"==", "!=", NULL};
+  struct t_token *token;
+  
   token = parser_token(parser);
-  if (token->type != TT_OP || !compare_multiple_strings(token->buf, ops)) {
-    return &nullexpr;
+  printf("parse_expr(). %s\n", token_format(token));
+  
+  if (parse_simple(parser) < 0) return -1;
+  token = parser_token(parser);
+  if (!compare_multiple_strings(token->buf, ops)) {
+    return 0;
   }
-  while token->type == TT_OP && compare_multiple_strings(token->buf, ops) {
-    token = next_token(parser);
-    if (!parse_simple(parser)) return NULL;
-    create_biop(t);
+  
+  while (compare_multiple_strings(token->buf, (char **) ops)) {
+    token = parser_next(parser);
+    if (parse_simple(parser) < 0) return -1;
+    if (strcmp("==", token->buf)) {
+      create_biop(I_EQ);
+    }
+    else if (strcmp("!=", token->buf)) {
+      create_biop(I_NE);
+    }
     token = parser_token(parser);
   }
-  return &nullexpr;
+  return 0;
 }
 
 //struct t_expr * parser_parse_simple(struct t_parser *parser) {
 //  return parser_parse_term(parser);
 //}
 
-struct t_expr * parse_simple(struct t_parser *parser)
+int parse_simple(struct t_parser *parser)
 {
   struct t_token *token;
-  char *ops[] = {"-", "+", "\0"};
+  char *ops[] = {"-", "+", NULL};
   int minus = 0;
   
   token = parser_token(parser);
-  if (token->type == TT_OP && strcmp(token->buf, "-") == 0) {
+  printf("parse_simple() 1 %s\n", token_format(token));
+  if (strcmp(token->buf, "-") == 0) {
     minus = 1;
   }
-  if (!parse_term(parser)) return NULL;
+  if (parse_term(parser) < 0) return -1;
   if (minus) {
-    create_push(create_int(-1));
+    create_push(create_num_from_int(-1));
     create_biop(I_MUL);
   }
   
   token = parser_token(parser);
-  if (token->type != TT_OP || !compare_multiple_strings(token->buf, ops)) {
-    return &nullexpr;
+  if (!compare_multiple_strings(token->buf, ops)) {
+    return 0;
   }
-  while (token->type == TT_OP && compare_multiple_strings(token->buf, ops)) {
-    token = parser_next(parser);
-    if (!parse_term(parser)) return NULL;
-    create_biop(strcmp(token->buf, "/")==0 ? I_DIV : I_MUL);
-    token = parser_token(parser);
-  }
+  printf("parse_simple() 2 %s\n", token_format(token));
   
-  return &nullexpr;
+  token = parser_next(parser);
+  do {
+    printf("Calling parse_term()\n");
+    if (parse_term(parser) < 0) return -1;
+    printf("Calling create_biop()\n");
+    create_biop(strcmp(token->buf, "-")==0 ? I_SUB : I_ADD);
+    token = parser_token(parser);
+  } while (compare_multiple_strings(token->buf, ops));
+  
+  return 0;
 }
 
 //struct t_expr * parser_parse_term(struct t_parser *parser) {
@@ -453,53 +470,126 @@ struct t_expr * parse_simple(struct t_parser *parser)
 //  return termexpr;
 //}
 
-struct t_expr * parse_term(struct t_parser *parser)
+int parse_term(struct t_parser *parser)
 {
-  parse_factor()
-  t2 = next_token()
-  if t2.type is not ('*' or '/'):
-    return
-  else:
-    parse_factor()
-    return create_mult(t2)
-}
-
-struct t_expr * parser_parse_factor(struct t_parser *parser) {
   struct t_token *token;
-  struct t_expr *expr = NULL;
+  char *ops[] = {"*", "/", NULL};
   
   token = parser_token(parser);
-  if (token->type == TT_NUM) {
-    // TODO Do number expression
-    expr = parser_num_parse(parser);
+  printf("parse_term() 1 %s\n", token_format(token));
+  
+  if (parse_factor(parser) < 0) return -1;
+  token = parser_token(parser);
+  if (!compare_multiple_strings(token->buf, ops)) {
+    return 0;
   }
-  else if (token->type == TT_NAME) {
-    token = parser_next(parser);
-    if (token->type == TT_PARENL) {
-      parser_pushtoken(parser);
-      expr = parser_fcall_parse(parser);
+  printf("parse_term() 2 %s\n", token_format(token));
+  
+  if (parse_factor(parser) < 0) return -1;
+  create_biop(I_MUL);
+  
+  return 0;
+}
+
+//struct t_expr * parser_parse_factor(struct t_parser *parser) {
+//  struct t_token *token;
+//  struct t_expr *expr = NULL;
+//  
+//  token = parser_token(parser);
+//  if (token->type == TT_NUM) {
+//    // TODO Do number expression
+//    expr = parser_num_parse(parser);
+//  }
+//  else if (token->type == TT_NAME) {
+//    token = parser_next(parser);
+//    if (token->type == TT_PARENL) {
+//      parser_pushtoken(parser);
+//      expr = parser_fcall_parse(parser);
+//    }
+//    else if (token->type == TT_EQUAL) {
+//      parser_pushtoken(parser);
+//      expr = parser_term_parse(parser);
+//    }
+//    else {
+//      fprintf(stderr, "%s(): Unknown expression: TT_NAME, %s\n", __FUNCTION__, token_types[token->type]);
+//      while (token->type != TT_EOL && token->type != TT_EOF) {
+//        token = parser_next(parser);
+//        if (token->type == TT_EOL) {
+//          token = parser_next(parser);
+//        }
+//      }
+//      return NULL;
+//    }
+//  }
+//  else {
+//    expr = &noexpr;
+//    parser_next(parser);
+//  }
+//  
+//  return expr;
+//}
+
+int parse_factor(struct t_parser *parser)
+{
+  struct t_token *token;
+  
+  token = parser_token(parser);
+  printf("parse_factor() %s\n", token_format(token));
+  if (token->type == TT_PARENL) {
+    if (parse_expr(parser) < 0) return -1;
+    token = parser_token(parser);
+    if (token->type != TT_PARENR) {
+      return 0;
     }
-    else if (token->type == TT_EQUAL) {
-      parser_pushtoken(parser);
-      expr = parser_term_parse(parser);
-    }
-    else {
-      fprintf(stderr, "%s(): Unknown expression: TT_NAME, %s\n", __FUNCTION__, token_types[token->type]);
-      while (token->type != TT_EOL && token->type != TT_EOF) {
-        token = parser_next(parser);
-        if (token->type == TT_EOL) {
-          token = parser_next(parser);
-        }
-      }
-      return NULL;
-    }
+  }
+  else if (token->type == TT_NUM) {
+    printf("parse_factor(): Found number\n");
+    if (parse_num(parser) < 0) return -1;
+    printf("parse_factor(): Finished parsing number\n");
+  }
+  else if (token->type == TT_NAME) { // variable
+    if (parse_name(parser) < 0) return -1;
   }
   else {
-    expr = &noexpr;
-    parser_next(parser);
+    return -1;
   }
   
-  return expr;
+  return 0;
+}
+
+int parse_num(struct t_parser *parser)
+{
+  struct t_token *token;
+  token = parser_token(parser);
+  printf("V_NUM: %s\n", token->buf);
+  parser_next(parser);
+  return 0;
+}
+
+int parse_name(struct t_parser *parser)
+{
+  struct t_token *token;
+  token = parser_token(parser);
+  printf("V_NAME: %s\n", token->buf);
+  parser_next(parser);
+  return 0;
+}
+
+int create_biop(int type)
+{
+  printf("I_BIOP");
+  return 0;
+}
+
+int create_push(struct t_value *value)
+{
+  printf("I_PUSH\n");
+  return 0;
+}
+
+struct t_value * create_num_from_int(int v)
+{
+  return NULL;
 }
 
 /*
@@ -546,71 +636,71 @@ int parser_fcall_init(struct t_expr *expr) {
  * Parse a function call
  */
 struct t_expr * parser_fcall_parse(struct t_parser *parser) {
-  struct t_token *token;
-  struct t_fcall *call;
+//  struct t_token *token;
+//  struct t_fcall *call;
   struct t_expr *expr = NULL;
-  struct t_expr *argexpr = NULL;
-  struct t_expr *prev = NULL;
-
-  expr = malloc(sizeof(struct t_expr));
-  parser_expr_init(expr, EXP_FCALL);
-  call = (struct t_fcall *) expr->detail;
-
-  token = parser_token(parser);
-  if (!token) return NULL;
-  if (token->type != TT_NAME) {
-      // TODO return ERROR expression
-      fprintf(stderr, "(TODO) Syntax error. Expected function name. Got %s: '%s'\n", token_types[token->type], token->buf);
-      return NULL;
-  }
-  if (call->name) free(call->name);
-  call->name = malloc(sizeof(char) * (strlen(token->buf) + 1));
-  strcpy(call->name, token->buf);
-
-  token = parser_next(parser);
-  if (!token) return NULL;
-  if (token->type != TT_PARENL) {
-    fprintf(stderr, "(TODO) %s(): Syntax error: Expected function opening parenthese '('. Got %s: %s\n", __FUNCTION__, token_types[token->type], token->buf);
-    return NULL;
-  }
-
-  token = parser_next(parser);
-  if (!token) return NULL;
-  if (token->type == TT_PARENR) {
-    token = parser_next(parser);
-  }
-  else {
-    while (1) {
-      if (token->type == TT_EOF) {
-        fprintf(stderr, "(TODO) (in call to %s) Unexpected end of file", call->name);
-        return NULL;
-      }
-      argexpr = parser_parse_simple(parser);
-      if (!call->firstarg) {
-        call->firstarg = argexpr;
-      }
-      else {
-        prev->next = argexpr;
-      }
-      call->argcount++;
-      prev = argexpr;
-
-      token = parser_token(parser);
-      if (!token) return NULL;
-      if (token->type == TT_PARENR) {
-        parser_next(parser);
-        break;
-      }
-      else if (token->type != TT_COMMA) {
-        fprintf(stderr, "(TODO) (in call to %s) Syntax error: Expected function argument or closing parenthese ')'. Got: %s\n", call->name, token_format(token));
-        return NULL;
-      }
-      else {
-        parser_next(parser);
-      }
-    }
-  }
-
+//  struct t_expr *argexpr = NULL;
+//  struct t_expr *prev = NULL;
+//
+//  expr = malloc(sizeof(struct t_expr));
+//  parser_expr_init(expr, EXP_FCALL);
+//  call = (struct t_fcall *) expr->detail;
+//
+//  token = parser_token(parser);
+//  if (!token) return NULL;
+//  if (token->type != TT_NAME) {
+//      // TODO return ERROR expression
+//      fprintf(stderr, "(TODO) Syntax error. Expected function name. Got %s: '%s'\n", token_types[token->type], token->buf);
+//      return NULL;
+//  }
+//  if (call->name) free(call->name);
+//  call->name = malloc(sizeof(char) * (strlen(token->buf) + 1));
+//  strcpy(call->name, token->buf);
+//
+//  token = parser_next(parser);
+//  if (!token) return NULL;
+//  if (token->type != TT_PARENL) {
+//    fprintf(stderr, "(TODO) %s(): Syntax error: Expected function opening parenthese '('. Got %s: %s\n", __FUNCTION__, token_types[token->type], token->buf);
+//    return NULL;
+//  }
+//
+//  token = parser_next(parser);
+//  if (!token) return NULL;
+//  if (token->type == TT_PARENR) {
+//    token = parser_next(parser);
+//  }
+//  else {
+//    while (1) {
+//      if (token->type == TT_EOF) {
+//        fprintf(stderr, "(TODO) (in call to %s) Unexpected end of file", call->name);
+//        return NULL;
+//      }
+//      argexpr = parser_parse_simple(parser);
+//      if (!call->firstarg) {
+//        call->firstarg = argexpr;
+//      }
+//      else {
+//        prev->next = argexpr;
+//      }
+//      call->argcount++;
+//      prev = argexpr;
+//
+//      token = parser_token(parser);
+//      if (!token) return NULL;
+//      if (token->type == TT_PARENR) {
+//        parser_next(parser);
+//        break;
+//      }
+//      else if (token->type != TT_COMMA) {
+//        fprintf(stderr, "(TODO) (in call to %s) Syntax error: Expected function argument or closing parenthese ')'. Got: %s\n", call->name, token_format(token));
+//        return NULL;
+//      }
+//      else {
+//        parser_next(parser);
+//      }
+//    }
+//  }
+//
   return expr;
 }
 
