@@ -11,3 +11,147 @@ end
 
 -> jmpz('else'); funcA(); else: funcB(); end:
 
+1 + 5 * a / 2 + 6
+push(1)
+push(5)
+mul(a)
+add()
+div(2)
+add(6)
+
+2 + (7 + (1 + 3 * 5))
+push(2)
+push(7)
+push(1)
+push(3)
+push(5)
+mul()
+add()
+add()
+add()
+
+2 + 3
+push(2)
+add(3)
+
+2 + (7 + (1 + 3 * 5))
+
+def parse():
+  t = null
+  while !t or t.type is ('EOL' or ';')
+    t = next_token()
+    parse_stmt()
+    t = token()
+  if t.type is not 'EOF':
+    error!
+
+def parse_block(stopTokens):
+  t = null
+  while !t or t.type is ('EOL' or ';')
+    t = next_token()
+    if t.type is in stopTokens
+      next_token()
+      return t
+    parse_stmt()
+    t = token()
+
+def parse_stmt():
+  t = token()
+  if t.type is tAssign:
+    parse_assign()
+    t = token()
+    if t.type is not ('='):
+      return
+    while t.type is '=':
+      t = next_token()
+      parse_simple()
+      create_biop(t.type)
+      t = token()
+  else if t.type is tIf:
+    parse_if()
+
+def parse_if():
+  next_token()
+  parse_assign()
+  t = token()
+  if t is not ('EOL' or ';'):
+    error!
+  jmp = create_jumpif()
+  do:
+    t = parse_block([tEnd, tElse tElseIf])
+    if t.type is in (tEnd, tElse):
+      next_token()
+      jmp.target = current_location()
+    else if t.type is tElseIf:
+      parse_assign()
+      t = token()
+      if t is not ('EOL' or ';'):
+        error!
+      jmp = create_jumpif()
+  while t.type is in (tElse, tElseIf)
+
+def parse_assign():
+  parse_expr()
+  t = token()
+  if t.type is not '=':
+    return
+  while t.type is '=':
+    t = next_token()
+    parse_simple()
+    create_biop(t.type)
+    t = token()
+
+def parse_expr():
+  parse_simple()
+  t = token()
+  if t.type is not ('==' or '!=' or '<' or '>' or '<=' or '>='):
+    return
+  while t.type is ('==' or '!=' or '<' or '>' or '<=' or '>='):
+    t = next_token()
+    parse_simple()
+    create_biop(t.type)
+    t = token()
+
+def parse_simple():
+  unary = create_token('+')
+  t1 = token()
+  if t1.type is ('-' or '+'):
+    prefix = t1
+  parse_term()
+  if t2.type is '-':
+    create_push(-1)
+    create_biop('*')
+  
+  t3 = token()
+  if t3.type is not ('+' or '-'):
+    return
+  while t3.type is ('+' or '-'):
+    t = next_token()
+    parse_term()
+    create_biop(t3.type)
+    t3 = token()
+
+def parse_term():
+  parse_factor()
+  t2 = next_token()
+  if t2.type is not ('*' or '/'):
+    return
+  else:
+    parse_factor()
+    return create_mult(t2)
+
+def parse_factor():
+  t1 = token()
+  if t1.type eq '(':
+    parse_expr()
+    t = token()
+    if t is not ')':
+      error!
+  if t1 is number:
+    exp = create_push_num(t1)
+  if t2 is variable:
+    exp = create_push_var(t1)
+  else:
+    error!
+  
+  return

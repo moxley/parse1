@@ -50,8 +50,8 @@ char * scanner_cc_names[] = {
   "CC_QUOTE"
 };
 
-char *scanner_operators = "~!@%^&*-+=|?/";
-char *scanner_delimiters = "()[]{}.:,";
+char *scanner_operators = "~!@%^&*-+=|?/<>";
+char *scanner_delimiters = "()[]{}.:,;";
 char *scanner_quotes = "\"'`";
 
 int scanner_init(struct t_scanner *scanner, FILE *in) {
@@ -125,6 +125,7 @@ void token_copy(struct t_token *dest, const struct t_token *source) {
 void scanner_close(struct t_scanner *scanner) {
   struct t_token *t;
   struct t_char *c;
+  struct item *item;
   
   fclose(scanner->in);
   
@@ -134,10 +135,12 @@ void scanner_close(struct t_scanner *scanner) {
     free(c);
   }
 
-  t = (struct t_token *) list_first(&scanner->t_list);
-  while (t) {
+  item = scanner->t_list.first;
+  while (item) {
+    t = (struct t_token *) item->value;
     if (t->buf) free(t->buf);
     if (t->formatbuf) free(t->formatbuf);
+    item = item->next;
   }
 
   list_empty(&scanner->c_list);
@@ -544,6 +547,9 @@ struct t_token * scanner_parse_delim(struct t_scanner *scanner)
     break;
   case ',':
     type = TT_COMMA;
+    break;
+  case ';':
+    type = TT_SEMI;
     break;
   }
 

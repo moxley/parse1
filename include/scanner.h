@@ -33,6 +33,7 @@ extern char *parse_error_names[];
 #define TT_PARENL  8
 #define TT_PARENR  9
 #define TT_COMMA   10
+#define TT_SEMI    11
 
 extern char *token_types[];
 

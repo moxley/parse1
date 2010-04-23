@@ -28,8 +28,8 @@ struct t_expr expression_types[] = {
 int expr_types_size = sizeof(expression_types);
 
 char statement_buf[STATEMENT_FORMAT_BUF_SIZE];
-char *nullexpr = "<#expr: {type: NULL}>";
-
+char *nullexprstr = "<#expr: {type: NULL}>";
+struct t_expr nullexpr;
 struct t_expr noexpr;
 
 int parser_init(struct t_parser *parser, FILE *in) {
@@ -41,7 +41,49 @@ int parser_init(struct t_parser *parser, FILE *in) {
   parser->errors[0] = (struct t_parse_error *) 0;
   parser->error = PARSER_ERR_NONE;
   if (scanner_init(&(parser->scanner), in)) return 1;
+  list_init(&parser.output);
   return 0;
+}
+
+int parser_close(struct t_parser *parser) {
+  int i;
+  struct t_expr *stmt;
+  struct t_expr *next;
+  struct item *item;
+  
+  /* Free the scanner */
+  scanner_close(&(parser->scanner));
+
+  /* Free the parser errors */
+  for (i=0; parser->errors[i]; i++) {
+    free(parser->errors[i]);
+  }
+
+  /* Free the statements */
+  stmt = parser->first;
+  i = 0;
+  while (stmt) {
+    next = stmt->next;
+    parser_expr_destroy(stmt);
+    free(stmt);
+    stmt = next;
+  }
+  
+  /* Free the output */
+  item = list_first(&parser.output);
+  while (item) {
+    free(item->value);
+  }
+
+  return 0;
+}
+
+char * parser_format(struct t_parser *parser) {
+  snprintf(parser->formatbuf, PARSER_FORMAT_BUF_SIZE, "<#parser: {error: %s, stmt: %s, scanner: %s}>",
+    parse_error_names[parser->error],
+    parser_expr_fmt(parser->stmt),
+    scanner_format(&(parser->scanner)));
+  return parser->formatbuf;
 }
 
 int parser_count_errors(struct t_parser *parser) {
@@ -69,40 +111,6 @@ int parser_count_errors(struct t_parser *parser) {
 
   parser->errors[error_i] = (struct t_parse_error *) 0;
   return parser->error;
-}
-
-int parser_close(struct t_parser *parser) {
-  int i;
-  struct t_expr *stmt;
-  struct t_expr *next;
-  
-  /* Free the scanner */
-  scanner_close(&(parser->scanner));
-
-  /* Free the parser errors */
-  for (i=0; parser->errors[i]; i++) {
-    free(parser->errors[i]);
-  }
-
-  /* Free the statements */
-  stmt = parser->first;
-  i = 0;
-  while (stmt) {
-    next = stmt->next;
-    parser_expr_destroy(stmt);
-    free(stmt);
-    stmt = next;
-  }
-
-  return 0;
-}
-
-char * parser_format(struct t_parser *parser) {
-  snprintf(parser->formatbuf, PARSER_FORMAT_BUF_SIZE, "<#parser: {error: %s, stmt: %s, scanner: %s}>",
-    parse_error_names[parser->error],
-    parser_expr_fmt(parser->stmt),
-    scanner_format(&(parser->scanner)));
-  return parser->formatbuf;
 }
 
 int parser_expr_init(struct t_expr *expr, int type) {
@@ -205,7 +213,7 @@ char * parser_expr_fmt(struct t_expr *expr) {
   char *detailbuf = NULL;
   
   if (!expr) {
-    return nullexpr;
+    return nullexprstr;
   }
   
   if (!expr->detail) {
@@ -240,89 +248,220 @@ char * parser_expr_fmt(struct t_expr *expr) {
  * After calling this function, the parser will point to the
  * token immediately following the expression.
  */
-struct t_expr * parser_parse(struct t_parser *parser) {
-  struct t_expr *expr = NULL;
-  struct t_token *token;
+//struct t_expr * parser_parse(struct t_parser *parser) {
+//  struct t_expr *expr = NULL;
+//  struct t_token *token;
+//
+//  token = parser_token(parser);
+//  if (token->type == TT_EOF) {
+//    fprintf(stderr, "%s(): Unexpected end of file\n", __FUNCTION__);
+//    return NULL;
+//  }
+//
+//  expr = parser_parse_stmt(parser);
+//  if (!expr) return NULL;
+//  token = parser_token(parser);
+//  if (!token) return NULL;
+//  
+//  if (token->type != TT_EOL && token->type != TT_EOF) {
+//    fprintf(stderr, "Unexpected token. Expected EOL or EOF\n");
+//    do {
+//      token = parser_next(parser);
+//      if (!token) return NULL;
+//    } while (token->type != TT_EOL && token->type != TT_EOF);
+//  }
+//  
+//  while (token->type == TT_EOL) {
+//    token = parser_next(parser);
+//  }
+//  
+//  return expr;
+//}
 
-  token = parser_token(parser);
-  if (token->type == TT_EOF) {
-    fprintf(stderr, "%s(): Unexpected end of file\n", __FUNCTION__);
-    return NULL;
-  }
-
-  expr = parser_parse_stmt(parser);
-  if (!expr) return NULL;
-  token = parser_token(parser);
-  if (!token) return NULL;
+struct t_expr * parse(struct t_parser *parser)
+{
+  struct t_token *token = NULL;
   
-  if (token->type != TT_EOL && token->type != TT_EOF) {
-    fprintf(stderr, "Unexpected token. Expected EOL or EOF\n");
-    do {
-      token = parser_next(parser);
-      if (!token) return NULL;
-    } while (token->type != TT_EOL && token->type != TT_EOF);
-  }
-  
-  while (token->type == TT_EOL) {
+  while (!token && token->type != TT_EOL && token->type != TT_SEMI) {
     token = parser_next(parser);
+    if (!parse_stmt(parser)) return 0;
+    token = parser_token(parser);
   }
   
-  return expr;
+  if (token->type != TT_EOF) {
+    fprintf(stderr, "Unexpected token: %s", token_format(token));
+    return 0;
+  }
+  
+  return &nullexpr;
 }
 
-struct t_expr * parser_parse_stmt(struct t_parser *parser) {
+struct t_expr * parse_stmt(struct t_parser *parser) {
   struct t_token *token = NULL;
-  struct t_expr *expr = NULL;
   
   token = parser_token(parser);
-  if (token->type == TT_NAME) {
-    token = parser_next(parser);
-    parser_pushtoken(parser);
-    if (token->type == TT_EQUAL) {
-      parse_parse_assignment(parser);
+  if (token->type == TT_NAME && strcmp(token->buf, "set") == 0) {
+    parse_assign(parser);
+    token = parser_token(parser);
+    if (token->type != TT_EQUAL) {
+      return &nullexpr;
     }
-    else {
-      expr = parser_parse_simple(parser);
+    while (token->type == TT_EQUAL) {
+      token = parser_next(parser);
+      parse_simple(parser);
+      create_biop(token);
+      token = token();
     }
   }
-  else {
-    expr = parser_parse_simple(parser);
+  else if (t->type is TT_NAME && strcmp(token->buf, "if") == 0) {
+    parse_if(parser);
   }
-  
-  return expr;
+
+  return &nullexpr;
+}
+
+//struct t_expr * parser_parse_stmt(struct t_parser *parser) {
+//  struct t_token *token = NULL;
+//  struct t_expr *expr = NULL;
+//  
+//  token = parser_token(parser);
+//  if (token->type == TT_NAME) {
+//    token = parser_next(parser);
+//    parser_pushtoken(parser);
+//    if (token->type == TT_EQUAL) {
+//      parse_parse_assignment(parser);
+//    }
+//    else {
+//      expr = parser_parse_simple(parser);
+//    }
+//  }
+//  else {
+//    expr = parser_parse_simple(parser);
+//  }
+//  
+//  return expr;
+//}
+
+struct t_expr * parser_parse_if(struct t_parser *parser) {
+  return NULL;
 }
 
 struct t_expr * parse_parse_assignment(struct t_parser *parser) {
   return NULL;
 }
 
-struct t_expr * parser_parse_simple(struct t_parser *parser) {
-  return parser_parse_term(parser);
-}
-
-struct t_expr * parser_parse_term(struct t_parser *parser) {
+struct t_expr * parse_assign(struct t_parser *parser) {
   struct t_token *token;
-  struct t_expr *termexpr = NULL;
-  struct t_binom *term;
   
-  parser_parse_factor(parser);
+  if (!parse_expr(parser)) return NULL;
   token = parser_token(parser);
-  while (token->type == TT_PLUS || token->type == TT_PLUS) {
-    termexpr = malloc(sizeof(struct t_expr));
-    parser_expr_init(termexpr, EXP_TERM);
-    term = (struct t_binom *) termexpr->detail;
-    term->op = token;
-    term->left = parser_popexpr(parser);
-    
-    parser_next(parser);
-    
-    parser_parse_factor(parser);
-    term->right = parser_popexpr(parser);
-    
+  if (token->type != TT_EQUAL) {
+    return &nullexpr;
+  }
+  while (token->type == TT_EQUAL) {
+    token = parser_next(parser);
+    if (!parse_simple(parser)) return NULL;
+    create_biop(token);
     token = parser_token(parser);
   }
   
-  return termexpr;
+  return &nullexpr;
+}
+
+int compare_multiple_strings(const char *source, const char **list)
+{
+  int i;
+  for (i=0; list[i]; i++) {
+    if (strcmp(source, list[i]) == 0) return 1;
+  }
+  return 0;
+}
+
+struct t_expr * parse_expr(struct t_parser *parser)
+{
+  char *ops[] = {"==", "!=", "<", ">", "<=", ">=", "\0"};
+  if (!parse_simple(parser)) return NULL;
+  token = parser_token(parser);
+  if (token->type != TT_OP || !compare_multiple_strings(token->buf, ops)) {
+    return &nullexpr;
+  }
+  while token->type == TT_OP && compare_multiple_strings(token->buf, ops) {
+    token = next_token(parser);
+    if (!parse_simple(parser)) return NULL;
+    create_biop(t);
+    token = parser_token(parser);
+  }
+  return &nullexpr;
+}
+
+//struct t_expr * parser_parse_simple(struct t_parser *parser) {
+//  return parser_parse_term(parser);
+//}
+
+struct t_expr * parse_simple(struct t_parser *parser)
+{
+  struct t_token *token;
+  char *ops[] = {"-", "+", "\0"};
+  int minus = 0;
+  
+  token = parser_token(parser);
+  if (token->type == TT_OP && strcmp(token->buf, "-") == 0) {
+    minus = 1;
+  }
+  if (!parse_term(parser)) return NULL;
+  if (minus) {
+    create_push(create_int(-1));
+    create_biop(I_MUL);
+  }
+  
+  token = parser_token(parser);
+  if (token->type != TT_OP || !compare_multiple_strings(token->buf, ops)) {
+    return &nullexpr;
+  }
+  while (token->type == TT_OP && compare_multiple_strings(token->buf, ops)) {
+    token = parser_next(parser);
+    if (!parse_term(parser)) return NULL;
+    create_biop(strcmp(token->buf, "/")==0 ? I_DIV : I_MUL);
+    token = parser_token(parser);
+  }
+  
+  return &nullexpr;
+}
+
+//struct t_expr * parser_parse_term(struct t_parser *parser) {
+//  struct t_token *token;
+//  struct t_expr *termexpr = NULL;
+//  struct t_binom *term;
+//  
+//  parser_parse_factor(parser);
+//  token = parser_token(parser);
+//  while (token->type == TT_PLUS || token->type == TT_PLUS) {
+//    termexpr = malloc(sizeof(struct t_expr));
+//    parser_expr_init(termexpr, EXP_TERM);
+//    term = (struct t_binom *) termexpr->detail;
+//    term->op = token;
+//    term->left = parser_popexpr(parser);
+//    
+//    parser_next(parser);
+//    
+//    parser_parse_factor(parser);
+//    term->right = parser_popexpr(parser);
+//    
+//    token = parser_token(parser);
+//  }
+//  
+//  return termexpr;
+//}
+
+struct t_expr * parse_term(struct t_parser *parser)
+{
+  parse_factor()
+  t2 = next_token()
+  if t2.type is not ('*' or '/'):
+    return
+  else:
+    parse_factor()
+    return create_mult(t2)
 }
 
 struct t_expr * parser_parse_factor(struct t_parser *parser) {

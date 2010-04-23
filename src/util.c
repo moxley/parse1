@@ -60,8 +60,6 @@ int list_size(struct list *list) {
 int list_push(struct list *list, void *item) {
   struct item *listitem;
 
-  printf("Top of list_push()\n");
-  
   if (!list->first) {
     list->first = llist_newitem(item);
     list->last = list->first;

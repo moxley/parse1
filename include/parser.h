@@ -22,6 +22,20 @@
 #define EXP_FCALL   5
 #define EXP_TERM    6
 
+#define VAL_NULL    0
+#define VAL_BOOL    1
+#define VAL_INT     2
+#define VAL_FLOAT   3
+#define VAL_STRING  4
+#define VAL_OBJECT  5
+
+#define I_PUSH      1
+#define I_POP       2
+#define I_ADD       3
+#define I_SUB       4
+#define I_MUL       5
+#define I_DIV       6
+
 extern char *parser_keywords[];
 
 struct t_parse_error {
@@ -35,6 +49,7 @@ struct t_parser {
   struct t_expr *first;
   struct t_expr *stmt;
   //struct list list;
+  struct list output;
   char formatbuf[PARSER_FORMAT_BUF_SIZE];
 };
 
@@ -79,6 +94,19 @@ struct t_func {
 
   /* Local function-- A linked list of statements */
   struct item *first;  
+};
+
+struct t_value {
+  int type;
+  int intval;
+  float floatval;
+  char *stringval;
+  int len;
+};
+
+struct t_icode {
+  int type;
+  void *operand;
 };
 
 /*
