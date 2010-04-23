@@ -1,3 +1,3 @@
 #!/bin/sh
 
-echo '1 + 3 * 5' | ./bin/test_icode
+echo '1 + 3 * 5 / b' | ./bin/test_icode

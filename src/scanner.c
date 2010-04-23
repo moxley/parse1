@@ -488,11 +488,13 @@ struct t_token * scanner_parse_name(struct t_scanner *scanner) {
   return token;
 }
 
-struct t_token * scanner_parse_op(struct t_scanner *scanner) {
+struct t_token * scanner_parse_op(struct t_scanner *scanner)
+{
   struct t_token *token;
   char buf[SCRATCH_BUF_SIZE + 1];
   int buf_i = 0;
   struct t_char *c;
+  int i;
   
   c = scanner_c(scanner);
   if (c->c == '+') {
@@ -503,29 +505,16 @@ struct t_token * scanner_parse_op(struct t_scanner *scanner) {
   }
   else {
     token = scanner_init_token(scanner, TT_UNKNOWN);
-    return token;
   }
-  int i;
-  int invalid = 0;
-  for (i=0; 1; i++) {
+  for (i=0; c->c_class == CC_OP && i<SCRATCH_BUF_SIZE; i++) {
     buf[buf_i++] = c->c;
     if ((c = scanner_nextc(scanner)) == NULL) return NULL;
-    if (c->c_class == CC_OP) {
-      invalid = 1;
-    }
-    else {
-      break;
-    }
   }
   
   buf[buf_i] = '\0';
   if (token->buf) free(token->buf);
   token->buf = malloc(sizeof(char) * (buf_i + 1));
   strcpy(token->buf, buf);
-
-  if (invalid) {
-    token->type = TT_UNKNOWN;
-  }
 
   return token;
 }

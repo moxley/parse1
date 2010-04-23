@@ -283,14 +283,21 @@ int parse(struct t_parser *parser)
   struct t_token *token = NULL;
     
   token = parser_token(parser);
-  printf("Top of parse() %s\n", token_format(token));
 
   do {
     if (parse_stmt(parser) < 0) return -1;
     token = parser_token(parser);
-  } while (token->type == TT_EOL || token->type == TT_SEMI);
+    if (token->type == TT_EOF) {
+      break;
+    }
+    else if (token->type != TT_EOL && token->type != TT_SEMI) {
+      break;
+    }
+    while (token->type == TT_EOL || token->type == TT_SEMI) {
+      token = parser_next(parser);
+    }
+  } while (token->type != TT_EOF);
 
-  printf("End token: %s\n", token_format(token));
   
   if (token->type != TT_EOF) {
     fprintf(stderr, "Unexpected token: %s", token_format(token));
@@ -303,9 +310,8 @@ int parse(struct t_parser *parser)
 int parse_stmt(struct t_parser *parser)
 {
   struct t_token *token = NULL;
-  
+
   token = parser_token(parser);
-  printf("parse_stmt(). %s\n", token_format(token));
   
   parse_expr(parser);
   token = parser_token(parser);
@@ -370,6 +376,7 @@ int parse_assign(struct t_parser *parser)
 
 int compare_multiple_strings(const char *source, char **list)
 {
+  if (!source) return 0;
   int i;
   for (i=0; list[i]; i++) {
     if (strcmp(source, list[i]) == 0) return 1;
@@ -384,7 +391,6 @@ int parse_expr(struct t_parser *parser)
   struct t_token *token;
   
   token = parser_token(parser);
-  printf("parse_expr(). %s\n", token_format(token));
   
   if (parse_simple(parser) < 0) return -1;
   token = parser_token(parser);
@@ -417,7 +423,6 @@ int parse_simple(struct t_parser *parser)
   int minus = 0;
   
   token = parser_token(parser);
-  printf("parse_simple() 1 %s\n", token_format(token));
   if (strcmp(token->buf, "-") == 0) {
     minus = 1;
   }
@@ -431,13 +436,10 @@ int parse_simple(struct t_parser *parser)
   if (!compare_multiple_strings(token->buf, ops)) {
     return 0;
   }
-  printf("parse_simple() 2 %s\n", token_format(token));
   
   token = parser_next(parser);
   do {
-    printf("Calling parse_term()\n");
     if (parse_term(parser) < 0) return -1;
-    printf("Calling create_biop()\n");
     create_biop(strcmp(token->buf, "-")==0 ? I_SUB : I_ADD);
     token = parser_token(parser);
   } while (compare_multiple_strings(token->buf, ops));
@@ -476,14 +478,14 @@ int parse_term(struct t_parser *parser)
   char *ops[] = {"*", "/", NULL};
   
   token = parser_token(parser);
-  printf("parse_term() 1 %s\n", token_format(token));
   
   if (parse_factor(parser) < 0) return -1;
   token = parser_token(parser);
+  printf("parse_term() op token: %s\n", token_format(token));
   if (!compare_multiple_strings(token->buf, ops)) {
     return 0;
   }
-  printf("parse_term() 2 %s\n", token_format(token));
+  token = parser_next(parser);
   
   if (parse_factor(parser) < 0) return -1;
   create_biop(I_MUL);
@@ -534,7 +536,6 @@ int parse_factor(struct t_parser *parser)
   struct t_token *token;
   
   token = parser_token(parser);
-  printf("parse_factor() %s\n", token_format(token));
   if (token->type == TT_PARENL) {
     if (parse_expr(parser) < 0) return -1;
     token = parser_token(parser);
@@ -543,9 +544,7 @@ int parse_factor(struct t_parser *parser)
     }
   }
   else if (token->type == TT_NUM) {
-    printf("parse_factor(): Found number\n");
     if (parse_num(parser) < 0) return -1;
-    printf("parse_factor(): Finished parsing number\n");
   }
   else if (token->type == TT_NAME) { // variable
     if (parse_name(parser) < 0) return -1;
@@ -553,6 +552,8 @@ int parse_factor(struct t_parser *parser)
   else {
     return -1;
   }
+
+  token = parser_token(parser);
   
   return 0;
 }
@@ -561,7 +562,8 @@ int parse_num(struct t_parser *parser)
 {
   struct t_token *token;
   token = parser_token(parser);
-  printf("V_NUM: %s\n", token->buf);
+  printf("VAL_NUM: %s\n", token->buf);
+  create_push(NULL);
   parser_next(parser);
   return 0;
 }
@@ -570,14 +572,15 @@ int parse_name(struct t_parser *parser)
 {
   struct t_token *token;
   token = parser_token(parser);
-  printf("V_NAME: %s\n", token->buf);
+  printf("VAL_VAR: %s\n", token->buf);
+  create_push(NULL);
   parser_next(parser);
   return 0;
 }
 
 int create_biop(int type)
 {
-  printf("I_BIOP");
+  printf("I_BIOP\n");
   return 0;
 }
 

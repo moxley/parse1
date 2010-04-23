@@ -28,6 +28,7 @@
 #define VAL_FLOAT   3
 #define VAL_STRING  4
 #define VAL_OBJECT  5
+#define VAL_VAR     6
 
 #define I_PUSH      1
 #define I_POP       2
