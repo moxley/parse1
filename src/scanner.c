@@ -604,26 +604,23 @@ void scanner_build_cc_table() {
 /**
  * Escape special characters as required by a C-formatted string.
  */
-int util_escape_string(char *buf, int buf_size, const char *str) {
+int util_escape_string(char buf[], int buf_size, const char *str) {
   int i;
   int buf_i = 0;
-  int out_of_bounds = 0;
+  int est_i = 0;
   char esc_buf[3];
   int esc_len;
   
   for (i=0; str[i]; ++i) {
     esc_len = util_escape_char(esc_buf, str[i]);
     if (buf_i + esc_len < buf_size-1) {
-      strcpy(buf + buf_i, esc_buf);
+      strcpy(&buf[buf_i], esc_buf);
       buf_i += esc_len;
     }
-    else {
-      out_of_bounds = 1;
-      break;
-    }
+    est_i += esc_len;
   }
   buf[buf_i] = '\0';
-  return out_of_bounds;
+  return est_i;
 }
 
 int util_escape_char(char *buf, char c) {

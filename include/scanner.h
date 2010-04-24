@@ -120,7 +120,7 @@ int scanner_skip_whitespace(struct t_scanner *scanner);
 
 int scanner_charclass(int c);
 void scanner_build_cc_table();
-int util_escape_string(char *buf, int buf_size, const char *str);
+int util_escape_string(char buf[], int buf_size, const char *str);
 int util_escape_char(char *buf, char c);
 
 #endif

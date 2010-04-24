@@ -19,7 +19,7 @@ int main(void) {
 	  input_buf[len] = '\0';
 	}
 	printf("input_buf after read: %s\n", input_buf);
-    if (util_escape_string(buf, BUF_SIZE, input_buf)) {
+    if (util_escape_string(buf, BUF_SIZE, input_buf) > BUF_SIZE-1) {
       fprintf(stderr, "Input string longer than working buffer\n");
     }
   } while (!feof(in) && !ferror(in));

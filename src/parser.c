@@ -15,6 +15,30 @@ char *parser_error_names[] = {
   "PARSER_ERR_MAX_ERRORS"
 };
 
+char *icodes[] = {
+  "NOP",
+  "PUSH",
+  "POP",
+  "ADD",
+  "SUB",
+  "MUL",
+  "DIV",
+  "ASSIGN",
+  "EQ",
+  "NE",
+};
+
+const char *value_types[] = {
+  "NULL",
+  "BOOL",
+  "INT",
+  "FLOAT",
+  "STRING",
+  "OBJECT",
+  "VAR"
+};
+int value_types_len = sizeof(value_types) / sizeof(char *);
+
 /* Expression types */
 struct t_expr expression_types[] = {
   {EXP_NONE, "none", NULL, NULL, &parser_none_fmt, NULL, NULL},
@@ -476,19 +500,24 @@ int parse_term(struct t_parser *parser)
 {
   struct t_token *token;
   char *ops[] = {"*", "/", NULL};
+  int icode;
   
   token = parser_token(parser);
   
   if (parse_factor(parser) < 0) return -1;
   token = parser_token(parser);
   printf("parse_term() op token: %s\n", token_format(token));
-  if (!compare_multiple_strings(token->buf, ops)) {
-    return 0;
-  }
-  token = parser_next(parser);
   
-  if (parse_factor(parser) < 0) return -1;
-  create_biop(I_MUL);
+  do {
+    if (!token->buf || !compare_multiple_strings(token->buf, ops)) {
+      return 0;
+    }
+    icode = strcmp("/", token->buf) == 0 ? I_DIV : I_MUL;
+    token = parser_next(parser);
+    if (parse_factor(parser) < 0) return -1;
+    create_biop(icode);
+    token = parser_token(parser);
+  } while (1);
   
   return 0;
 }
@@ -563,7 +592,7 @@ int parse_num(struct t_parser *parser)
   struct t_token *token;
   token = parser_token(parser);
   printf("VAL_NUM: %s\n", token->buf);
-  create_push(NULL);
+  create_push(create_num_from_str(token->buf));
   parser_next(parser);
   return 0;
 }
@@ -573,26 +602,126 @@ int parse_name(struct t_parser *parser)
   struct t_token *token;
   token = parser_token(parser);
   printf("VAL_VAR: %s\n", token->buf);
-  create_push(NULL);
+  create_push(create_var(token->buf));
   parser_next(parser);
   return 0;
 }
 
 int create_biop(int type)
 {
-  printf("I_BIOP\n");
+  printf("I_BIOP: %s\n", icodes[type]);
   return 0;
 }
 
 int create_push(struct t_value *value)
 {
-  printf("I_PUSH\n");
+  printf("I_PUSH: %s\n", format_value(value));
   return 0;
+}
+
+char * format_value(struct t_value *value)
+{
+  char buf[PARSER_SCRATCH_BUF + 1];
+  int len;
+  char *toobigval = "TOO_BIG";
+  char *toobig = "<#value {TOO_BIG}>";
+  char valuebuf[PARSER_SCRATCH_BUF + 2 + 1];
+
+  if (!value) return "NULL";
+  
+  /*
+   * Format the value as would be displayed in source code.
+   */
+  if (value->type == VAL_INT) {
+    len = snprintf(valuebuf, PARSER_SCRATCH_BUF, "%d", value->intval);
+    if (len > PARSER_SCRATCH_BUF) {
+      strcpy(valuebuf, toobigval);
+    }
+  }
+  else if (value->type == VAL_STRING) {
+    valuebuf[0] = '"';
+    len = util_escape_string(&valuebuf[1], PARSER_SCRATCH_BUF - 2, value->stringval);
+    if (len > PARSER_SCRATCH_BUF - 2) {
+      strcpy(valuebuf, toobigval);
+    }
+    else {
+      valuebuf[len+1] = '"';
+      valuebuf[len+2] = '\0';
+    }
+  }
+  else if (value->type == VAL_VAR) {
+    len = util_escape_string(valuebuf, PARSER_SCRATCH_BUF, value->stringval);
+    if (len > PARSER_SCRATCH_BUF) {
+      strcpy(valuebuf, toobigval);
+    }
+  }
+  else {
+    snprintf(valuebuf, PARSER_SCRATCH_BUF, "(%s)", value_types[value->type]);
+  }
+  
+  len = snprintf(buf, PARSER_SCRATCH_BUF, "<#value: {type: %s, value: %s}>", value_types[value->type], valuebuf);
+  if (len > PARSER_SCRATCH_BUF) {
+    value->formatbuf = malloc(sizeof(char) * (strlen(toobig) + 1));
+  }
+  else {
+    value->formatbuf = malloc(sizeof(char) * (len + 1));
+    strcpy(value->formatbuf, buf);
+  }
+  
+  return value->formatbuf;
+}
+
+void value_init(struct t_value *value, int type)
+{
+  value->type = type;
+  value->intval = 0;
+  value->floatval = 0.0;
+  value->stringval = NULL;
+  value->len = 0;
+  value->formatbuf = NULL;
+}
+
+void value_close(struct t_value *value)
+{
+  if (value->stringval) free(value->stringval);
+  if (value->formatbuf) free(value->formatbuf);
 }
 
 struct t_value * create_num_from_int(int v)
 {
-  return NULL;
+  struct t_value *value;
+  
+  value = malloc(sizeof(struct t_value));
+  value_init(value, VAL_INT);
+  value->intval = v;
+  
+  return value;
+}
+
+struct t_value * create_num_from_str(char * v)
+{
+  return create_num_from_int(atoi(v));
+}
+
+struct t_value * create_str(char *str)
+{
+  struct t_value *value;
+  
+  value = malloc(sizeof(struct t_value));
+  value_init(value, VAL_STRING);
+  value->len = strlen(str);
+  value->stringval = malloc(sizeof(char) * (value->len + 1));
+  strcpy(value->stringval, str);
+  
+  return value;
+}
+
+struct t_value * create_var(char *str)
+{
+  struct t_value *value;
+  value = create_str(str);
+  value->type = VAL_VAR;
+  return value;
 }
 
 /*

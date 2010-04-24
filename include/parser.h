@@ -30,6 +30,7 @@
 #define VAL_OBJECT  5
 #define VAL_VAR     6
 
+#define I_NOP       0
 #define I_PUSH      1
 #define I_POP       2
 #define I_ADD       3
@@ -41,6 +42,9 @@
 #define I_NE        9
 
 extern char *parser_keywords[];
+extern char *icodes[];
+extern const char *value_types[];
+extern int value_types_len;
 
 struct t_parse_error {
   struct t_token token;
@@ -106,6 +110,7 @@ struct t_value {
   float floatval;
   char *stringval;
   int len;
+  char *formatbuf;
 };
 
 struct t_icode {
@@ -154,7 +159,12 @@ int parse_name(struct t_parser *parser);
 
 int create_biop(int type);
 int create_push(struct t_value *value);
+void value_init(struct t_value *value, int type);
 struct t_value * create_num_from_int(int v);
+struct t_value * create_num_from_str(char * v);
+struct t_value * create_str(char *str);
+struct t_value * create_var(char *str);
+char * format_value(struct t_value *value);
 
 /*
  * Expressions
