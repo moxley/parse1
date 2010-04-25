@@ -60,7 +60,6 @@ int parser_init(struct t_parser *parser, FILE *in) {
   memset(parser, 0, sizeof(struct t_parser));
   noexpr.type = EXP_NONE;
   noexpr.format = &parser_none_fmt;
-  parser->first = NULL;
   parser->stmt = &noexpr;
   parser->errors[0] = (struct t_parse_error *) 0;
   parser->error = PARSER_ERR_NONE;
@@ -71,9 +70,8 @@ int parser_init(struct t_parser *parser, FILE *in) {
 
 int parser_close(struct t_parser *parser) {
   int i;
-  struct t_expr *stmt;
-  struct t_expr *next;
   struct item *item;
+  struct t_icode *icode;
   
   /* Free the scanner */
   scanner_close(&(parser->scanner));
@@ -83,21 +81,17 @@ int parser_close(struct t_parser *parser) {
     free(parser->errors[i]);
   }
 
-  /* Free the statements */
-  stmt = parser->first;
-  i = 0;
-  while (stmt) {
-    next = stmt->next;
-    parser_expr_destroy(stmt);
-    free(stmt);
-    stmt = next;
-  }
-  
   /* Free the output */
-  item = list_first(&parser->output);
+  item = parser->output.first;
+  icode = (struct t_icode *) item->value;
   while (item) {
-    free(item->value);
+    icode = (struct t_icode *) item->value;
+    icode_close(icode);
+    free(icode);
+    item = item->next;
   }
+
+  list_empty(&parser->output);
 
   return 0;
 }
@@ -180,14 +174,14 @@ int parser_expr_destroy(struct t_expr *expr) {
  * Add a statement to the parse tree.
  */
 int parser_addstmt(struct t_parser *parser, struct t_expr *stmt) {
-  stmt->next = NULL;
-  if (!parser->first) {
-    parser->first = stmt;
-  }
-  else {
-    parser->stmt->next = stmt;
-  }
-  parser->stmt = stmt;
+//  stmt->next = NULL;
+//  if (!parser->first) {
+//    parser->first = stmt;
+//  }
+//  else {
+//    parser->stmt->next = stmt;
+//  }
+//  parser->stmt = stmt;
   
   return 0;
 }
@@ -391,7 +385,7 @@ int parse_assign(struct t_parser *parser)
   while (token->type == TT_EQUAL) {
     token = parser_next(parser);
     if (parse_simple(parser) < 0) return -1;
-    create_biop(I_ASSIGN);
+    create_icode_append(parser, I_ASSIGN, NULL);
     token = parser_token(parser);
   }
   
@@ -426,10 +420,10 @@ int parse_expr(struct t_parser *parser)
     token = parser_next(parser);
     if (parse_simple(parser) < 0) return -1;
     if (strcmp("==", token->buf)) {
-      create_biop(I_EQ);
+      create_icode_append(parser, I_EQ, NULL);
     }
     else if (strcmp("!=", token->buf)) {
-      create_biop(I_NE);
+      create_icode_append(parser, I_NE, NULL);
     }
     token = parser_token(parser);
   }
@@ -445,6 +439,7 @@ int parse_simple(struct t_parser *parser)
   struct t_token *token;
   char *ops[] = {"-", "+", NULL};
   int minus = 0;
+  int itype;
   
   token = parser_token(parser);
   if (strcmp(token->buf, "-") == 0) {
@@ -452,19 +447,20 @@ int parse_simple(struct t_parser *parser)
   }
   if (parse_term(parser) < 0) return -1;
   if (minus) {
-    create_push(create_num_from_int(-1));
-    create_biop(I_MUL);
+    create_icode_append(parser, I_PUSH, create_num_from_int(-1));
+    create_icode_append(parser, I_MUL, NULL);
   }
   
   token = parser_token(parser);
   if (!compare_multiple_strings(token->buf, ops)) {
     return 0;
   }
+  itype = strcmp(token->buf, "-")==0 ? I_SUB : I_ADD;
   
   token = parser_next(parser);
   do {
     if (parse_term(parser) < 0) return -1;
-    create_biop(strcmp(token->buf, "-")==0 ? I_SUB : I_ADD);
+    create_icode_append(parser, itype, NULL);
     token = parser_token(parser);
   } while (compare_multiple_strings(token->buf, ops));
   
@@ -500,22 +496,21 @@ int parse_term(struct t_parser *parser)
 {
   struct t_token *token;
   char *ops[] = {"*", "/", NULL};
-  int icode;
+  int itype;
   
   token = parser_token(parser);
   
   if (parse_factor(parser) < 0) return -1;
   token = parser_token(parser);
-  printf("parse_term() op token: %s\n", token_format(token));
   
   do {
     if (!token->buf || !compare_multiple_strings(token->buf, ops)) {
       return 0;
     }
-    icode = strcmp("/", token->buf) == 0 ? I_DIV : I_MUL;
+    itype = strcmp("/", token->buf) == 0 ? I_DIV : I_MUL;
     token = parser_next(parser);
     if (parse_factor(parser) < 0) return -1;
-    create_biop(icode);
+    create_icode_append(parser, itype, NULL);
     token = parser_token(parser);
   } while (1);
   
@@ -566,11 +561,13 @@ int parse_factor(struct t_parser *parser)
   
   token = parser_token(parser);
   if (token->type == TT_PARENL) {
+    token = parser_next(parser);
     if (parse_expr(parser) < 0) return -1;
     token = parser_token(parser);
     if (token->type != TT_PARENR) {
       return 0;
     }
+    token = parser_next(parser);
   }
   else if (token->type == TT_NUM) {
     if (parse_num(parser) < 0) return -1;
@@ -591,8 +588,8 @@ int parse_num(struct t_parser *parser)
 {
   struct t_token *token;
   token = parser_token(parser);
-  printf("VAL_NUM: %s\n", token->buf);
-  create_push(create_num_from_str(token->buf));
+  //printf("VAL_NUM: %s\n", token->buf);
+  create_icode_append(parser, I_PUSH, create_num_from_str(token->buf));
   parser_next(parser);
   return 0;
 }
@@ -601,22 +598,92 @@ int parse_name(struct t_parser *parser)
 {
   struct t_token *token;
   token = parser_token(parser);
-  printf("VAL_VAR: %s\n", token->buf);
-  create_push(create_var(token->buf));
+  //printf("VAL_VAR: %s\n", token->buf);
+  create_icode_append(parser, I_PUSH, create_var(token->buf));
   parser_next(parser);
   return 0;
 }
 
-int create_biop(int type)
+struct t_icode * icode_new(int type, struct t_value *operand)
 {
-  printf("I_BIOP: %s\n", icodes[type]);
-  return 0;
+  struct t_icode *icode;
+  
+  icode = malloc(sizeof(struct t_icode));
+  icode->type = type;
+  icode->operand = operand;
+  icode->argc = operand ? 1 : 0;
+  icode->formatbuf = NULL;
+  
+  return icode;
 }
 
-int create_push(struct t_value *value)
+void icode_close(struct t_icode *icode)
 {
-  printf("I_PUSH: %s\n", format_value(value));
-  return 0;
+  if (icode->formatbuf) {
+    free(icode->formatbuf);
+  }
+  if (icode->operand) {
+    free(icode->operand);
+  }
+}
+
+struct t_icode * create_icode_append(struct t_parser *parser, int type, struct t_value *value)
+{
+  struct t_icode *icode;
+  //printf("Appending icode: type=%s, operand=%s\n", icodes[type], format_value(value));
+  icode = icode_new(type, value);
+  printf("Appending icode: %s\n", format_icode(parser, icode));
+  list_push(&parser->output, icode);
+  //printf("Appended icode: %s\n", format_icode(parser, icode));
+  return icode;
+}
+
+char * format_icode(struct t_parser *parser, struct t_icode *icode)
+{
+  char buf[PARSER_SCRATCH_BUF + 1];
+  int len;
+  struct t_icode *opnd1, *opnd2;
+  struct item *item;
+  char *toobig = "<#icode {TOO_BIG}>";
+  
+  if (icode->operand) {
+    len = snprintf(buf, PARSER_SCRATCH_BUF, "(%s %s)",
+      icodes[icode->type],
+      format_value(icode->operand));
+  }
+  else {
+    item = parser->output.last;
+    while (item && item->value != icode) {
+      item = item->prev;
+    }
+    if (!item) {
+      len = snprintf(buf, PARSER_SCRATCH_BUF, "(%s)", icodes[icode->type]);
+    }
+    else {
+      printf("icode type: %s\n", icodes[icode->type]);
+      assert(item->prev);
+      assert(item->prev->prev);
+      assert(item->prev->value);
+      assert(item->prev->prev->value);
+      opnd2 = (struct t_icode *) item->prev->value;
+      opnd1 = (struct t_icode *) item->prev->prev->value;
+      len = snprintf(buf, PARSER_SCRATCH_BUF, "(%s %s %s)",
+        icodes[icode->type],
+        (opnd1->operand ? format_value(opnd1->operand) : format_icode(parser, opnd1)),
+        (opnd2->operand ? format_value(opnd2->operand) : format_icode(parser, opnd2)));
+    }
+  }
+  
+  if (len > PARSER_SCRATCH_BUF) {
+    icode->formatbuf = malloc(sizeof(char) * (strlen(toobig) + 1));
+    strcpy(icode->formatbuf, toobig);
+  }
+  else {
+    icode->formatbuf = malloc(sizeof(char) * (len + 1));
+    strcpy(icode->formatbuf, buf);
+  }
+  
+  return icode->formatbuf;
 }
 
 char * format_value(struct t_value *value)
@@ -626,6 +693,7 @@ char * format_value(struct t_value *value)
   char *toobigval = "TOO_BIG";
   char *toobig = "<#value {TOO_BIG}>";
   char valuebuf[PARSER_SCRATCH_BUF + 2 + 1];
+  int show_literal = 0;
 
   if (!value) return "NULL";
   
@@ -637,6 +705,7 @@ char * format_value(struct t_value *value)
     if (len > PARSER_SCRATCH_BUF) {
       strcpy(valuebuf, toobigval);
     }
+    show_literal = 1;
   }
   else if (value->type == VAL_STRING) {
     valuebuf[0] = '"';
@@ -648,24 +717,33 @@ char * format_value(struct t_value *value)
       valuebuf[len+1] = '"';
       valuebuf[len+2] = '\0';
     }
+    show_literal = 1;
   }
   else if (value->type == VAL_VAR) {
     len = util_escape_string(valuebuf, PARSER_SCRATCH_BUF, value->stringval);
     if (len > PARSER_SCRATCH_BUF) {
       strcpy(valuebuf, toobigval);
     }
+    show_literal = 1;
   }
   else {
     snprintf(valuebuf, PARSER_SCRATCH_BUF, "(%s)", value_types[value->type]);
   }
   
-  len = snprintf(buf, PARSER_SCRATCH_BUF, "<#value: {type: %s, value: %s}>", value_types[value->type], valuebuf);
-  if (len > PARSER_SCRATCH_BUF) {
-    value->formatbuf = malloc(sizeof(char) * (strlen(toobig) + 1));
+  if (show_literal) {
+    value->formatbuf = malloc(sizeof(char) * (len + 1));
+    strcpy(value->formatbuf, valuebuf);
   }
   else {
-    value->formatbuf = malloc(sizeof(char) * (len + 1));
-    strcpy(value->formatbuf, buf);
+    len = snprintf(buf, PARSER_SCRATCH_BUF, "<#value: {type: %s, value: %s}>", value_types[value->type], valuebuf);
+    if (len > PARSER_SCRATCH_BUF) {
+      value->formatbuf = malloc(sizeof(char) * (strlen(toobig) + 1));
+      strcpy(value->formatbuf, toobig);
+    }
+    else {
+      value->formatbuf = malloc(sizeof(char) * (len + 1));
+      strcpy(value->formatbuf, buf);
+    }
   }
   
   return value->formatbuf;

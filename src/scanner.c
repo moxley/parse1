@@ -129,10 +129,12 @@ void scanner_close(struct t_scanner *scanner) {
   
   fclose(scanner->in);
   
-  c = (struct t_char *) list_first(&scanner->c_list);
-  while (c) {
+  item = scanner->c_list.first;
+  while (item) {
+    c = (struct t_char *) item->value;
     if (c->formatbuf) free(c->formatbuf);
     free(c);
+    item = item->next;
   }
 
   item = scanner->t_list.first;

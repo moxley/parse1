@@ -10,8 +10,6 @@ int main(void) {
     return 1;
   }
   
-  printf("Calling parse()\n");
-  
   parse(&parser);
   
   parser_close(&parser);

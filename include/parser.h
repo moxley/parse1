@@ -54,7 +54,6 @@ struct t_parser {
   struct t_scanner scanner;
   struct t_parse_error *errors[MAX_PARSE_ERRORS+2];
   int error;
-  struct t_expr *first;
   struct t_expr *stmt;
   //struct list list;
   struct list output;
@@ -115,7 +114,9 @@ struct t_value {
 
 struct t_icode {
   int type;
-  void *operand;
+  int argc;
+  struct t_value *operand;
+  char *formatbuf;
 };
 
 /*
@@ -157,9 +158,11 @@ int parse_factor(struct t_parser *parser);
 int parse_num(struct t_parser *parser);
 int parse_name(struct t_parser *parser);
 
-int create_biop(int type);
-int create_push(struct t_value *value);
 void value_init(struct t_value *value, int type);
+struct t_icode * icode_new(int type, struct t_value *operand);
+void icode_close(struct t_icode *icode);
+struct t_icode * create_icode_append(struct t_parser *parser, int type, struct t_value *value);
+char * format_icode(struct t_parser *parser, struct t_icode *icode);
 struct t_value * create_num_from_int(int v);
 struct t_value * create_num_from_str(char * v);
 struct t_value * create_str(char *str);

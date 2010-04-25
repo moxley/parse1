@@ -1,4 +1,5 @@
 #!/bin/sh
 
-echo '1 + 3 * 5 / b' | ./bin/test_icode
-#echo 'a + b' | ./bin/test_icode
+exp='1 + 3 * (5 - 1) / b'
+echo "Expression: $exp"
+echo "$exp" | ./bin/test_icode

@@ -89,11 +89,3 @@ void *list_pop(struct list *list) {
   
   return value;
 }
-
-void *list_first(struct list *list) {
-  return list->first ? list->first->value : NULL;
-}
-
-void *list_last(struct list *list) {
-  return list->last ? list->last->value : NULL;
-}
