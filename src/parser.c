@@ -299,11 +299,12 @@ struct t_expr * parser_parse(struct t_parser *parser) {
 int parse(struct t_parser *parser)
 {
   struct t_token *token = NULL;
-    
+  
   token = parser_token(parser);
-
+  
   do {
     if (parse_stmt(parser) < 0) return -1;
+    
     token = parser_token(parser);
     if (token->type == TT_EOF) {
       break;
@@ -311,12 +312,16 @@ int parse(struct t_parser *parser)
     else if (token->type != TT_EOL && token->type != TT_SEMI) {
       break;
     }
+    
+    if (token->type == TT_EOL || token->type == TT_SEMI) {
+      create_icode_append(parser, I_POP, NULL);
+    }
+    
     while (token->type == TT_EOL || token->type == TT_SEMI) {
       token = parser_next(parser);
     }
   } while (token->type != TT_EOF);
 
-  
   if (token->type != TT_EOF) {
     fprintf(stderr, "Unexpected token: %s", token_format(token));
     return 0;
@@ -334,8 +339,7 @@ int parse_stmt(struct t_parser *parser)
   parse_expr(parser);
   token = parser_token(parser);
   if (token->type == TT_EQUAL) {
-    token = parser_next(parser);
-    if (parse_expr(parser) < 0) return -1;
+    if (parse_assign(parser) < 0) return -1;
   }
 
   return 0;
@@ -376,15 +380,14 @@ int parse_assign(struct t_parser *parser)
 {
   struct t_token *token;
   
-  if (parse_expr(parser) < 0) return -1;
   token = parser_token(parser);
   if (token->type != TT_EQUAL) {
-    return 0;
+    return -1;
   }
   
   while (token->type == TT_EQUAL) {
     token = parser_next(parser);
-    if (parse_simple(parser) < 0) return -1;
+    if (parse_expr(parser) < 0) return -1;
     create_icode_append(parser, I_ASSIGN, NULL);
     token = parser_token(parser);
   }
@@ -660,7 +663,6 @@ char * format_icode(struct t_parser *parser, struct t_icode *icode)
       len = snprintf(buf, PARSER_SCRATCH_BUF, "(%s)", icodes[icode->type]);
     }
     else {
-      printf("icode type: %s\n", icodes[icode->type]);
       assert(item->prev);
       assert(item->prev->prev);
       assert(item->prev->value);
