@@ -29,17 +29,19 @@
 #define VAL_STRING  4
 #define VAL_OBJECT  5
 #define VAL_VAR     6
+#define VAL_FCALL   7
 
 #define I_NOP       0
 #define I_PUSH      1
 #define I_POP       2
-#define I_ADD       3
-#define I_SUB       4
-#define I_MUL       5
-#define I_DIV       6
-#define I_ASSIGN    7
-#define I_EQ        8
-#define I_NE        9
+#define I_FCALL     3
+#define I_ADD       4
+#define I_SUB       5
+#define I_MUL       6
+#define I_DIV       7
+#define I_ASSIGN    8
+#define I_EQ        9
+#define I_NE        10
 
 extern char *parser_keywords[];
 extern char *icodes[];
@@ -109,6 +111,8 @@ struct t_value {
   float floatval;
   char *stringval;
   int len;
+  char *name;
+  int argc;
   char *formatbuf;
 };
 
@@ -119,7 +123,6 @@ struct t_var {
 
 struct t_icode {
   int type;
-  int argc;
   struct t_value *operand;
   char *formatbuf;
 };
@@ -173,6 +176,7 @@ struct t_value * create_num_from_int(int v);
 struct t_value * create_num_from_str(char * v);
 struct t_value * create_str(char *str);
 struct t_value * create_var(char *str);
+struct t_value * create_fcall(char *name, int argc);
 char * format_value(struct t_value *value);
 
 /*

@@ -12,6 +12,8 @@ int main(void) {
   
   parse(&parser);
   
+  printf("Done with parse()\n");
+  
   parser_close(&parser);
   printf("Done\n");
   

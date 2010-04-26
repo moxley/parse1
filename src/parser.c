@@ -19,6 +19,7 @@ char *icodes[] = {
   "NOP",
   "PUSH",
   "POP",
+  "FCALL",
   "ADD",
   "SUB",
   "MUL",
@@ -35,7 +36,8 @@ const char *value_types[] = {
   "FLOAT",
   "STRING",
   "OBJECT",
-  "VAR"
+  "VAR",
+  "FCALL"
 };
 int value_types_len = sizeof(value_types) / sizeof(char *);
 
@@ -321,7 +323,7 @@ int parse(struct t_parser *parser)
       token = parser_next(parser);
     }
   } while (token->type != TT_EOF);
-
+  
   if (token->type != TT_EOF) {
     fprintf(stderr, "Unexpected token: %s", token_format(token));
     return -1;
@@ -464,7 +466,6 @@ int parse_simple(struct t_parser *parser)
 
     if (parse_term(parser) < 0) return -1;
     create_icode_append(parser, itype, NULL);
-    token = parser_token(parser);
   } while (1);
   
   return 0;
@@ -591,7 +592,6 @@ int parse_num(struct t_parser *parser)
 {
   struct t_token *token;
   token = parser_token(parser);
-  //printf("VAL_NUM: %s\n", token->buf);
   create_icode_append(parser, I_PUSH, create_num_from_str(token->buf));
   parser_next(parser);
   return 0;
@@ -600,10 +600,44 @@ int parse_num(struct t_parser *parser)
 int parse_name(struct t_parser *parser)
 {
   struct t_token *token;
+  char *name;
+  int i;
+  struct t_icode *icode;
+  
   token = parser_token(parser);
-  //printf("VAL_VAR: %s\n", token->buf);
-  create_icode_append(parser, I_PUSH, create_var(token->buf));
-  parser_next(parser);
+  name = token->buf;
+  token = parser_next(parser);
+  if (token->type != TT_PARENL) {
+    create_icode_append(parser, I_PUSH, create_var(name));
+  }
+  else {
+    token = parser_next(parser);
+    if (token->type == TT_PARENR) {
+      i = 0;
+      token = parser_next(parser);
+    }
+    else {
+      for (i=0; ;i++) {
+        if (parse_expr(parser) < 0) return -1;
+        token = parser_token(parser);
+        if (token->type == TT_COMMA) {
+          token = parser_next(parser);
+        }
+        else if (token->type == TT_PARENR) {
+          token = parser_next(parser);
+          break;
+        }
+        else {
+          fprintf(stderr, "Missing closing ')' in call to %s(). token: %s\n", name, token_format(token));
+          return -1;
+        }
+      }
+    }
+    struct t_value *fcall;
+    fcall = create_fcall(name, i + 1);
+    icode = create_icode_append(parser, I_FCALL, fcall);
+  }
+  
   return 0;
 }
 
@@ -614,7 +648,6 @@ struct t_icode * icode_new(int type, struct t_value *operand)
   icode = malloc(sizeof(struct t_icode));
   icode->type = type;
   icode->operand = operand;
-  icode->argc = operand ? 1 : 0;
   icode->formatbuf = NULL;
   
   return icode;
@@ -630,14 +663,14 @@ void icode_close(struct t_icode *icode)
   }
 }
 
-struct t_icode * create_icode_append(struct t_parser *parser, int type, struct t_value *value)
+struct t_icode * create_icode_append(struct t_parser *parser, int type, struct t_value *operand)
 {
   struct t_icode *icode;
-  //printf("Appending icode: type=%s, operand=%s\n", icodes[type], format_value(value));
-  icode = icode_new(type, value);
+  
+  icode = icode_new(type, operand);
   printf("Appending icode: %s\n", format_icode(parser, icode));
   list_push(&parser->output, icode);
-  //printf("Appended icode: %s\n", format_icode(parser, icode));
+  
   return icode;
 }
 
@@ -722,7 +755,14 @@ char * format_value(struct t_value *value)
     show_literal = 1;
   }
   else if (value->type == VAL_VAR) {
-    len = util_escape_string(valuebuf, PARSER_SCRATCH_BUF, value->stringval);
+    len = snprintf(valuebuf, PARSER_SCRATCH_BUF, "%s", value->name);
+    if (len > PARSER_SCRATCH_BUF) {
+      strcpy(valuebuf, toobigval);
+    }
+    show_literal = 1;
+  }
+  else if (value->type == VAL_FCALL) {
+    len = snprintf(valuebuf, PARSER_SCRATCH_BUF, "%s(argc=%d)", value->name, value->argc);
     if (len > PARSER_SCRATCH_BUF) {
       strcpy(valuebuf, toobigval);
     }
@@ -759,12 +799,15 @@ void value_init(struct t_value *value, int type)
   value->stringval = NULL;
   value->len = 0;
   value->formatbuf = NULL;
+  value->name = NULL;
+  value->argc = 0;
 }
 
 void value_close(struct t_value *value)
 {
   if (value->stringval) free(value->stringval);
   if (value->formatbuf) free(value->formatbuf);
+  if (value->name) free(value->name);
 }
 
 struct t_value * create_num_from_int(int v)
@@ -796,12 +839,31 @@ struct t_value * create_str(char *str)
   return value;
 }
 
-struct t_value * create_var(char *str)
+struct t_value * create_var(char *name)
 {
-  struct t_value *value;
-  value = create_str(str);
-  value->type = VAL_VAR;
-  return value;
+  struct t_value *iden;
+  
+  iden = malloc(sizeof(struct t_value));
+  value_init(iden, VAL_VAR);
+  
+  iden->name = malloc(sizeof(char) * (strlen(name) + 1));
+  strcpy(iden->name, name);
+  
+  return iden;
+}
+
+struct t_value * create_fcall(char *name, int argc)
+{
+  struct t_value *fcall;
+  
+  fcall = malloc(sizeof(struct t_value));
+  value_init(fcall, VAL_FCALL);
+  
+  fcall->name = malloc(sizeof(char) * (strlen(name) + 1));
+  strcpy(fcall->name, name);
+  fcall->argc = argc;
+  
+  return fcall;
 }
 
 /*

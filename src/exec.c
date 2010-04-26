@@ -217,7 +217,7 @@ struct t_value * exec_icode(struct t_exec *exec, struct t_icode *icode)
     }
     else if (icode->type == I_ASSIGN) {
       struct t_var *var;
-      if (opnd1->type != VAL_VAR) {
+      if (opnd1->type != VAL_IDEN) {
         fprintf(stderr, "Left side of assignment must be a variable. Got %s instead.\n", value_types[opnd1->type]);
         return NULL;
       }
@@ -240,6 +240,24 @@ struct t_value * exec_icode(struct t_exec *exec, struct t_icode *icode)
         fprintf(stderr, "Don't know how to assign %s type value\n", value_types[opnd2->type]);
         return NULL;
       }
+    }
+    else if (icode->type == I_FCALL) {
+      printf("icode->type == I_FCALL\n");
+      struct t_func * func;
+      func = exec_funcbyname(exec, icode->operand->name);
+      
+      struct list a, b;
+      int i;
+      list_init(&a);
+      list_init(&b);
+      for (i=0; i < icode->operand->argc; i++) {
+        list_push(&a, list_pop(&exec->stack));
+      }
+      for (i=0; i < icode->operand->argc; i++) {
+        list_push(&b, list_pop(&a));
+      }
+      
+      printf("Call function %s with %d args\n", icode->operand->name, icode->operand->argc);
     }
     else {
       fprintf(stderr, "Don't know how to handle %s icode\n", icodes[icode->type]);
