@@ -205,24 +205,37 @@ struct t_value * exec_icode(struct t_exec *exec, struct t_icode *icode)
     debug(3, "%s(): icode->type == I_FCALL\n", __FUNCTION__);
     debug(3, "Stack size at line %d: %d\n", __LINE__, exec->stack.size);
     debug(3, "Top of stack at line %d: %s\n", __LINE__, format_value(list_last(&exec->stack)));
+    
     struct t_func * func;
     func = exec_funcbyname(exec, icode->operand->name);
     
-    struct list a, b;
+    /* Prepare the arguments */
+    struct list a, args;
     int i;
     list_init(&a);
-    list_init(&b);
+    list_init(&args);
     for (i=0; i < icode->operand->argc; i++) {
       list_push(&a, list_pop(&exec->stack));
     }
     for (i=0; i < icode->operand->argc; i++) {
-      list_push(&b, list_pop(&a));
+      list_push(&args, list_pop(&a));
     }
     
     /* TODO Invoke the function */
-    ret = create_num_from_int(22);
+    //ret = create_num_from_int(22);
+    if (func->invoke) {
+      ret = calloc(1, sizeof(struct t_value));
+      if (func->invoke(func, &args, ret) < 0) {
+        fprintf(stderr, "(TODO) Error in native function: %s()\n", func->name);
+        return NULL;
+      }
+      list_push(&exec->stack, ret);
+    }
+    else {
+      fprintf(stderr, "%s(): Unsupported function type for %s().\n", __FUNCTION__, func->name);
+      return NULL;
+    }
     
-    list_push(&exec->stack, ret);
   }
   else {
     opnd2 = list_pop(&exec->stack);
@@ -323,85 +336,86 @@ struct t_var * var_lookup(struct t_exec *exec, char *name)
  */
 struct t_expr * exec_invoke(struct t_exec *exec, struct t_expr *expr)
 {
-  struct t_expr *arg;
-  struct t_expr *res;
-  struct t_fcall *call;
-  struct t_func *func;
-  struct t_expr *prev, *next;
-  
-  call = (struct t_fcall *) expr->detail;
-  func = exec_funcbyname(exec, call->name);
-  if (!func) {
-    fprintf(stderr, "(TODO) %s: Function %s() is not defined.\n", __FUNCTION__, call->name);
-    return NULL;
-  }
-  
-  /*
-   * Evaluate arguments
-   *
-   * Replaces arguments with evaluated arguments, if they can be reduced.
-   */
-  arg = call->firstarg;
-  while (arg) {
-    prev = arg->prev;
-    next = arg->next;
-    res = exec_eval(exec, arg);
-    if (!res) {
-      return NULL;
-    }
-    else {
-      exec_pop(exec);
-      if (res == arg) {
-        /*
-         * Pull the arg back out of the stack and into the function args
-         */
-        arg->prev = prev;
-        arg->next = next;
-      }
-      else {
-        if (arg->prev) arg->prev->next = res;
-        res->prev = arg->prev;
-        res->next = arg->next;
-        if (arg->next) arg->next->prev = res;
-        if (arg == call->firstarg) call->firstarg = res;
-        parser_expr_destroy(arg);
-        free(arg);
-      }
-    }
-    arg = arg->next;
-  }
-  
-  if (func->invoke) {
-    res = calloc(1, sizeof(struct t_expr));
-    if (func->invoke(func, call, res)) {
-      fprintf(stderr, "(TODO) Error in native function: %s()\n", func->name);
-      return NULL;
-    }
-    if (!res->type) {
-      parser_expr_init(res, EXP_NULL);
-    }
-    exec_push(exec, res);
-  }
-  else if (func->first) {
-    /* TODO Put parameters in namespace */
-    fprintf(stderr, "%s(): func->first is not implemented\n", __FUNCTION__);
-    //stmt_item = func->first;
-    //while (stmt_item) {
-    //  stmt = (struct t_expr *) stmt_item->value;
-    //  res = exec_eval(exec, stmt);
-    //  if (res == NULL) {
-    //    fprintf(stderr, "(TODO) %s: Failed to evaluate statement in function %s\n", __FUNCTION__, func->name);
-    //    return NULL;
-    //  }
-    //  exec_pop(exec);
-    //}
-  }
-  else {
-    fprintf(stderr, "(TODO) %s: Function %s() is missing a body", __FUNCTION__, func->name);
-    return NULL;
-  }
-  
-  return res;
+//  struct t_expr *arg;
+//  struct t_expr *res;
+//  struct t_fcall *call;
+//  struct t_func *func;
+//  struct t_expr *prev, *next;
+//  
+//  call = (struct t_fcall *) expr->detail;
+//  func = exec_funcbyname(exec, call->name);
+//  if (!func) {
+//    fprintf(stderr, "(TODO) %s: Function %s() is not defined.\n", __FUNCTION__, call->name);
+//    return NULL;
+//  }
+//  
+//  /*
+//   * Evaluate arguments
+//   *
+//   * Replaces arguments with evaluated arguments, if they can be reduced.
+//   */
+//  arg = call->firstarg;
+//  while (arg) {
+//    prev = arg->prev;
+//    next = arg->next;
+//    res = exec_eval(exec, arg);
+//    if (!res) {
+//      return NULL;
+//    }
+//    else {
+//      exec_pop(exec);
+//      if (res == arg) {
+//        /*
+//         * Pull the arg back out of the stack and into the function args
+//         */
+//        arg->prev = prev;
+//        arg->next = next;
+//      }
+//      else {
+//        if (arg->prev) arg->prev->next = res;
+//        res->prev = arg->prev;
+//        res->next = arg->next;
+//        if (arg->next) arg->next->prev = res;
+//        if (arg == call->firstarg) call->firstarg = res;
+//        parser_expr_destroy(arg);
+//        free(arg);
+//      }
+//    }
+//    arg = arg->next;
+//  }
+//  
+//  if (func->invoke) {
+//    res = calloc(1, sizeof(struct t_expr));
+//    if (func->invoke(func, call, res)) {
+//      fprintf(stderr, "(TODO) Error in native function: %s()\n", func->name);
+//      return NULL;
+//    }
+//    if (!res->type) {
+//      parser_expr_init(res, EXP_NULL);
+//    }
+//    exec_push(exec, res);
+//  }
+//  else if (func->first) {
+//    /* TODO Put parameters in namespace */
+//    fprintf(stderr, "%s(): func->first is not implemented\n", __FUNCTION__);
+//    //stmt_item = func->first;
+//    //while (stmt_item) {
+//    //  stmt = (struct t_expr *) stmt_item->value;
+//    //  res = exec_eval(exec, stmt);
+//    //  if (res == NULL) {
+//    //    fprintf(stderr, "(TODO) %s: Failed to evaluate statement in function %s\n", __FUNCTION__, func->name);
+//    //    return NULL;
+//    //  }
+//    //  exec_pop(exec);
+//    //}
+//  }
+//  else {
+//    fprintf(stderr, "(TODO) %s: Function %s() is missing a body", __FUNCTION__, func->name);
+//    return NULL;
+//  }
+//  
+//  return res;
+  return NULL;
 }
 
 //char * format_stack(struct t_exec *exec)

@@ -95,16 +95,6 @@ struct t_expr_num {
   char *formatbuf;
 };
 
-struct t_func {
-  char *name;
-  
-  /* Native function */
-  int (*invoke)(struct t_func *func, struct t_fcall *call, struct t_expr *res);
-
-  /* Local function-- A linked list of statements */
-  struct item *first;  
-};
-
 struct t_value {
   int type;
   int intval;
@@ -114,6 +104,16 @@ struct t_value {
   char *name;
   int argc;
   char *formatbuf;
+};
+
+struct t_func {
+  char *name;
+  
+  /* Native function */
+  int (*invoke)(struct t_func *func, struct list *args, struct t_value *ret);
+
+  /* Local function-- A linked list of statements */
+  struct item *first;  
 };
 
 struct t_var {

@@ -53,9 +53,9 @@ int main(int argc, char** argv) {
   struct t_parser parser;
   struct t_expr *expr;
   struct t_expr *res;
-  struct t_func func_hello;
-  struct t_func func_print;
-  struct t_func func_add;
+  //struct t_func func_hello;
+  //struct t_func func_print;
+  //struct t_func func_add;
   struct t_token *token;
   int i = 0;
   
@@ -65,17 +65,17 @@ int main(int argc, char** argv) {
   }
   
   /* Add a function definition */
-  func_hello.name = "hello";
-  func_hello.invoke = &hello;
-  exec_addfunc(&exec, &func_hello);
-
-  func_print.name = "println";
-  func_print.invoke = &myprintln;
-  exec_addfunc(&exec, &func_print);
-
-  func_add.name = "add";
-  func_add.invoke = &myadd;
-  exec_addfunc(&exec, &func_add);
+  //func_hello.name = "hello";
+  //func_hello.invoke = &hello;
+  //exec_addfunc(&exec, &func_hello);
+  //
+  //func_print.name = "println";
+  //func_print.invoke = &myprintln;
+  //exec_addfunc(&exec, &func_print);
+  //
+  //func_add.name = "add";
+  //func_add.invoke = &myadd;
+  //exec_addfunc(&exec, &func_add);
   
   do {
     expr = parser_parse(&parser);

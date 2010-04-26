@@ -2,10 +2,22 @@
 #include "exec.h"
 #include "util.h"
 
+int myfunc(struct t_func *func, struct list *args, struct t_value *ret) {
+  struct t_value *arg;
+  
+  arg = args->first->value;
+
+  ret->type = VAL_INT;
+  ret->intval = arg->intval;
+  
+  return 0;
+}
+
 int main(int argc, char* argv[]) {
   struct t_exec exec;
   struct item *item;
   struct t_var *var;
+  struct t_func func_funcA;
   
   debug_level = 2;
   
@@ -15,6 +27,10 @@ int main(int argc, char* argv[]) {
       break;
     }
   
+    func_funcA.name = "funcA";
+    func_funcA.invoke = &myfunc;
+    exec_addfunc(&exec, &func_funcA);
+    
     if (exec_statements(&exec) < 0) {
       fprintf(stderr, "exec_statements() failed\n");
       break;
