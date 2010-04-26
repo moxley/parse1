@@ -17,7 +17,7 @@ int main(int argc, char* argv[]) {
   struct t_exec exec;
   struct item *item;
   struct t_var *var;
-  struct t_func func_funcA;
+  struct t_func *func;
   
   debug_level = 2;
   
@@ -27,9 +27,9 @@ int main(int argc, char* argv[]) {
       break;
     }
   
-    func_funcA.name = "funcA";
-    func_funcA.invoke = &myfunc;
-    exec_addfunc(&exec, &func_funcA);
+    func = func_new("funcA");
+    func->invoke = &myfunc;
+    exec_addfunc(&exec, func);
     
     if (exec_statements(&exec) < 0) {
       fprintf(stderr, "exec_statements() failed\n");

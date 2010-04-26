@@ -4,9 +4,6 @@
 #include "util.h"
 #include "parser.h"
 
-struct item *firstfunc = NULL;
-struct item *lastfunc = NULL;
-
 /*
  * Initialize an execution environment.
  */
@@ -32,6 +29,11 @@ int exec_close(struct t_exec *exec) {
   }
   list_empty(&exec->stack);
   
+  item = exec->functions.first;
+  while (item) {
+    func_close(item->value);
+    item = item->next;
+  }
   list_empty(&exec->functions);
   
   item = exec->vars.first;

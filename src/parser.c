@@ -612,3 +612,18 @@ struct t_value * create_fcall(char *name, int argc)
   
   return fcall;
 }
+
+struct t_func * func_new(char *name)
+{
+  struct t_func *func;
+  
+  func = malloc(sizeof(struct t_func));
+  func->name = malloc(sizeof(char) * (strlen(name) + 1));
+  strcpy(func->name, name);
+  
+  return func;
+}
+
+void func_close(struct t_func *func)
+{
+}

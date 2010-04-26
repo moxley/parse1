@@ -155,4 +155,10 @@ char * parser_fcall_fmt(struct t_expr *expr);
 struct t_expr * parser_fcall_parse(struct t_parser *parser);
 int parser_fcall_close(struct t_expr *expr);
 
+/*
+ * Function
+ */
+struct t_func * func_new(char *name);
+void func_close(struct t_func *func);
+
 #endif
