@@ -1,6 +1,9 @@
 #ifndef util_h
 #define util_h
 
+extern int debug_level;
+extern FILE *debug_stream;
+
 struct item {
   void *value;
   struct item *next;
@@ -25,5 +28,8 @@ int list_size(struct list *list);
 int list_push(struct list *list, void *item);
 void *list_pop(struct list *list);
 void *list_top(struct list *list);
+void *list_last(struct list *list);
+
+int debug(int level, char* fmt, ...);
 
 #endif

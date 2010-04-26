@@ -4,6 +4,8 @@
 #include "parser.h"
 #include "util.h"
 
+#define EXEC_SCRATCH 1024
+
 extern struct item *firstfunc;
 extern struct item *lastfunc;
 
@@ -14,6 +16,7 @@ struct t_exec {
   struct list functions;
   struct list vars;
   struct item *current;
+  struct list formats;
 };
 
 int exec_init(struct t_exec *exec, FILE *in);
@@ -39,5 +42,7 @@ struct t_var * var_lookup(struct t_exec *exec, char *name);
 void exec_addfunc(struct t_exec *exec, struct t_func *func);
 struct t_func * exec_funcbyname(struct t_exec *exec, char *name);
 struct t_expr * exec_invoke(struct t_exec *exec, struct t_expr *expr);
+
+void print_stack(struct t_exec *exec);
 
 #endif

@@ -1,7 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 #include "util.h"
+
+int debug_level = 0;
+FILE *debug_stream;
 
 /*
  * Linked list
@@ -88,4 +92,27 @@ void *list_pop(struct list *list) {
   list->size--;
   
   return value;
+}
+
+void *list_last(struct list *list)
+{
+  if (!list->last) return NULL;
+  return list->last->value;
+}
+
+int debug(int level, char* fmt, ...)
+{
+
+  int retval=0;
+  va_list ap;
+
+  if (level <= debug_level) {
+    if (!debug_stream) debug_stream = stderr;
+    va_start(ap, fmt); /* Initialize the va_list */
+    retval = vfprintf(debug_stream, fmt, ap); /* Call vprintf */
+    va_end(ap); /* Cleanup the va_list */
+  }
+
+  return retval;
+
 }

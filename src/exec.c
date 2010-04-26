@@ -15,6 +15,7 @@ int exec_init(struct t_exec *exec, FILE *in) {
   list_init(&exec->stack);
   list_init(&exec->functions);
   list_init(&exec->vars);
+  list_init(&exec->formats);
   exec->current = NULL;
   return 0;
 }
@@ -39,6 +40,13 @@ int exec_close(struct t_exec *exec) {
     item = item->next;
   }
   list_empty(&exec->vars);
+
+  item = exec->formats.first;
+  while (item) {
+    var_close(item->value);
+    item = item->next;
+  }
+  list_empty(&exec->formats);
   
   return 0;
 }
@@ -116,8 +124,6 @@ struct t_expr * exec_eval(struct t_exec *exec, struct t_expr *expr) {
 
 int exec_statements(struct t_exec *exec)
 {
-  printf("Top of exec_statements()\n");
-  
   if (parse(&exec->parser) < 0) {
     return -1;
   }
@@ -170,7 +176,9 @@ int exec_run(struct t_exec *exec)
   }
   while (exec->current) {
     icode = (struct t_icode *) exec->current->value;
-    if (exec_icode(exec, icode) < 0) {
+    debug(1, "Executing icode type=%s\n", icodes[icode->type]);
+    if (!exec_icode(exec, icode)) {
+      debug(1, "%s(): returning -1 at line %d\n", __FUNCTION__, __LINE__);
       return -1;
     }
     exec->current = exec->current->next;
@@ -192,6 +200,29 @@ struct t_value * exec_icode(struct t_exec *exec, struct t_icode *icode)
   }
   else if (icode->type == I_POP) {
     ret = list_pop(&exec->stack);
+  }
+  else if (icode->type == I_FCALL) {
+    debug(3, "%s(): icode->type == I_FCALL\n", __FUNCTION__);
+    debug(3, "Stack size at line %d: %d\n", __LINE__, exec->stack.size);
+    debug(3, "Top of stack at line %d: %s\n", __LINE__, format_value(list_last(&exec->stack)));
+    struct t_func * func;
+    func = exec_funcbyname(exec, icode->operand->name);
+    
+    struct list a, b;
+    int i;
+    list_init(&a);
+    list_init(&b);
+    for (i=0; i < icode->operand->argc; i++) {
+      list_push(&a, list_pop(&exec->stack));
+    }
+    for (i=0; i < icode->operand->argc; i++) {
+      list_push(&b, list_pop(&a));
+    }
+    
+    /* TODO Invoke the function */
+    ret = create_num_from_int(22);
+    
+    list_push(&exec->stack, ret);
   }
   else {
     opnd2 = list_pop(&exec->stack);
@@ -217,19 +248,19 @@ struct t_value * exec_icode(struct t_exec *exec, struct t_icode *icode)
     }
     else if (icode->type == I_ASSIGN) {
       struct t_var *var;
-      if (opnd1->type != VAL_IDEN) {
-        fprintf(stderr, "Left side of assignment must be a variable. Got %s instead.\n", value_types[opnd1->type]);
+      if (opnd1->type != VAL_VAR) {
+        fprintf(stderr, "Left side of assignment must be a variable. Got %s=%d instead.\n", value_types[opnd1->type], opnd1->intval);
         return NULL;
       }
-      var = var_lookup(exec, opnd1->stringval);
+      var = var_lookup(exec, opnd1->name);
       if (var) {
         if (var->value->type != opnd2->type) {
-          fprintf(stderr, "Type mismatch when assigning new value: %s = %s\n", opnd1->stringval, value_types[opnd2->type]);
+          fprintf(stderr, "Type mismatch when assigning new value: %s = %s\n", opnd1->name, value_types[opnd2->type]);
           return NULL;
         }
       }
       else {
-        var = var_new(opnd1->stringval, opnd2);
+        var = var_new(opnd1->name, opnd2);
         list_push(&exec->vars, var);
       }
       
@@ -240,24 +271,6 @@ struct t_value * exec_icode(struct t_exec *exec, struct t_icode *icode)
         fprintf(stderr, "Don't know how to assign %s type value\n", value_types[opnd2->type]);
         return NULL;
       }
-    }
-    else if (icode->type == I_FCALL) {
-      printf("icode->type == I_FCALL\n");
-      struct t_func * func;
-      func = exec_funcbyname(exec, icode->operand->name);
-      
-      struct list a, b;
-      int i;
-      list_init(&a);
-      list_init(&b);
-      for (i=0; i < icode->operand->argc; i++) {
-        list_push(&a, list_pop(&exec->stack));
-      }
-      for (i=0; i < icode->operand->argc; i++) {
-        list_push(&b, list_pop(&a));
-      }
-      
-      printf("Call function %s with %d args\n", icode->operand->name, icode->operand->argc);
     }
     else {
       fprintf(stderr, "Don't know how to handle %s icode\n", icodes[icode->type]);
@@ -299,6 +312,7 @@ struct t_var * var_lookup(struct t_exec *exec, char *name)
     if (strcmp(((struct t_var *) item->value)->name, name) == 0) {
       return item->value;
     }
+    item = item->next;
   }
   
   return NULL;
@@ -389,3 +403,28 @@ struct t_expr * exec_invoke(struct t_exec *exec, struct t_expr *expr)
   
   return res;
 }
+
+//char * format_stack(struct t_exec *exec)
+//{
+//  struct item *item;
+//  struct t_value *value;
+//  char buf[EXEC_SCRATCH+1];
+//  int len;
+//  char *format;
+//  const char *sep = ", ";
+//  int seplen = sizeof(sep) / sizeof(char);
+//  const char *stack_fmt = "<#stack {%s}>";
+//  
+//  item = exec->stack.first;
+//  while (item) {
+//    value = (struct t_value *) item->value;
+//    format = format_value(value);
+//    len += strlen(format);
+//    if (len < EXEC_SCRATCH) {
+//      strcpy(buf, format);
+//    }
+//  }
+//  
+//  return buf;
+//}
+//

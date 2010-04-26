@@ -668,7 +668,7 @@ struct t_icode * create_icode_append(struct t_parser *parser, int type, struct t
   struct t_icode *icode;
   
   icode = icode_new(type, operand);
-  printf("Appending icode: %s\n", format_icode(parser, icode));
+  debug(1, "%s(): Appending icode: %s\n", __FUNCTION__, format_icode(parser, icode));
   list_push(&parser->output, icode);
   
   return icode;

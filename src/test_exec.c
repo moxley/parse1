@@ -1,10 +1,13 @@
 #include <stdio.h>
 #include "exec.h"
+#include "util.h"
 
 int main(int argc, char* argv[]) {
   struct t_exec exec;
   struct item *item;
   struct t_var *var;
+  
+  debug_level = 2;
   
   do {
     if (exec_init(&exec, stdin) < 0) {
