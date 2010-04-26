@@ -24,9 +24,6 @@ int exec_close(struct t_exec *exec);
 struct t_expr * exec_push(struct t_exec *exec, struct t_expr *expr);
 struct t_expr * exec_pop(struct t_exec *exec);
 
-struct t_expr * exec_eval(struct t_exec *exec, struct t_expr *expr);
-struct t_expr * exec_eval_stmt(struct t_exec *exec);
-
 struct t_value * exec_stmt(struct t_exec *exec);
 int exec_statements(struct t_exec *exec);
 int exec_run(struct t_exec *exec);
@@ -42,7 +39,5 @@ struct t_var * var_lookup(struct t_exec *exec, char *name);
 void exec_addfunc(struct t_exec *exec, struct t_func *func);
 struct t_func * exec_funcbyname(struct t_exec *exec, char *name);
 struct t_expr * exec_invoke(struct t_exec *exec, struct t_expr *expr);
-
-void print_stack(struct t_exec *exec);
 
 #endif

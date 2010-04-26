@@ -62,21 +62,6 @@ struct t_parser {
   char formatbuf[PARSER_FORMAT_BUF_SIZE];
 };
 
-/* An expression */
-struct t_expr {
-  int type;
-  char *name;
-  int (*init)(struct t_expr *exp);
-  int (*copy)(struct t_expr *dest, struct t_expr *source);
-  char * (*format)(struct t_expr *exp);
-  struct t_expr * (*parse)(struct t_parser *parser);
-  int (*destroy)(struct t_expr *exp);
-  struct t_expr *prev;
-  struct t_expr *next;
-  void *detail;
-  char *formatbuf;
-};
-
 /* Parser error */
 struct t_perror {
   char message[MAX_ERROR_MSG];
@@ -86,12 +71,6 @@ struct t_fcall {
   char *name;
   struct t_expr *firstarg;
   int argcount;
-  char *formatbuf;
-};
-
-struct t_expr_num {
-  int type;
-  int value;
   char *formatbuf;
 };
 
@@ -124,17 +103,6 @@ struct t_var {
 struct t_icode {
   int type;
   struct t_value *operand;
-  char *formatbuf;
-};
-
-/*
- * Term: factor [ ( "*" OR "/" ) ]
- */
-struct t_binom {
-  struct t_token *sign;
-  struct t_expr *left;
-  struct t_token *op;
-  struct t_expr *right;
   char *formatbuf;
 };
 
@@ -180,61 +148,11 @@ struct t_value * create_fcall(char *name, int argc);
 char * format_value(struct t_value *value);
 
 /*
- * Expressions
- */
-int parser_expr_init(struct t_expr *expr, int type);
-int parser_addstmt(struct t_parser *parser, struct t_expr *stmt);
-int parser_pushexpr(struct t_parser *parser, struct t_expr *expr);
-struct t_expr * parser_popexpr(struct t_parser *parser);
-char * parser_expr_fmt(struct t_expr *expr);
-int parser_expr_destroy(struct t_expr *expr);
-
-/*
- * Parse Expressions
- */
-struct t_expr * parser_parse(struct t_parser *parser);
-struct t_expr * parser_parse_stmt(struct t_parser *parser);
-struct t_expr * parse_parse_assignment(struct t_parser *parser);
-struct t_expr * parser_parse_simple(struct t_parser *parser);
-struct t_expr * parser_parse_term(struct t_parser *parser);
-struct t_expr * parser_parse_factor(struct t_parser *parser);
-
-/*
- * No expression
- */
-int parser_none_init(struct t_expr *expr);
-char * parser_none_fmt(struct t_expr *expr);
-
-/*
  * fcall: Function call
  */
 int parser_fcall_init(struct t_expr *expr);
 char * parser_fcall_fmt(struct t_expr *expr);
 struct t_expr * parser_fcall_parse(struct t_parser *parser);
 int parser_fcall_close(struct t_expr *expr);
-
-/*
- * num: Number primitive
- */
-int parser_num_init(struct t_expr *expr);
-char * parser_num_fmt(struct t_expr *expr);
-struct t_expr * parser_num_parse(struct t_parser *parser);
-int parser_num_close(struct t_expr *expr);
-
-/*
- * Binomial
- */
-int parser_binom_init(struct t_expr *expr);
-char * parser_binom_fmt(struct t_expr *expr);
-struct t_expr * parser_binom_parse(struct t_parser *parser);
-int parser_binom_close(struct t_expr *expr);
-
-/*
- * Term
- */
-int parser_term_init(struct t_expr *expr);
-char * parser_term_fmt(struct t_expr *expr);
-struct t_expr * parser_term_parse(struct t_parser *parser);
-int parser_term_close(struct t_expr *expr);
 
 #endif
