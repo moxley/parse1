@@ -112,6 +112,11 @@ struct t_value {
   char *formatbuf;
 };
 
+struct t_var {
+  char *name;
+  struct t_value *value;
+};
+
 struct t_icode {
   int type;
   int argc;
@@ -159,6 +164,7 @@ int parse_num(struct t_parser *parser);
 int parse_name(struct t_parser *parser);
 
 void value_init(struct t_value *value, int type);
+void value_close(struct t_value *value);
 struct t_icode * icode_new(int type, struct t_value *operand);
 void icode_close(struct t_icode *icode);
 struct t_icode * create_icode_append(struct t_parser *parser, int type, struct t_value *value);

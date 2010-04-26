@@ -14,14 +14,32 @@ int exec_init(struct t_exec *exec, FILE *in) {
   if (parser_init(&exec->parser, in)) return -1;
   list_init(&exec->stack);
   list_init(&exec->functions);
+  list_init(&exec->vars);
   exec->current = NULL;
   return 0;
 }
 
 int exec_close(struct t_exec *exec) {
+  struct item *item;
+  
   parser_close(&exec->parser);
+  
+  item = exec->stack.first;
+  while (item) {
+    value_close(item->value);
+    item = item->next;
+  }
   list_empty(&exec->stack);
+  
   list_empty(&exec->functions);
+  
+  item = exec->vars.first;
+  while (item) {
+    var_close(item->value);
+    item = item->next;
+  }
+  list_empty(&exec->vars);
+  
   return 0;
 }
 
@@ -96,12 +114,25 @@ struct t_expr * exec_eval(struct t_exec *exec, struct t_expr *expr) {
   return res;
 }
 
+int exec_statements(struct t_exec *exec)
+{
+  printf("Top of exec_statements()\n");
+  
+  if (parse(&exec->parser) < 0) {
+    return -1;
+  }
+  
+  if (exec_run(exec) < 0) {
+    return -1;
+  }
+  
+  return 0;
+}
+
 struct t_value * exec_stmt(struct t_exec *exec)
 {
   struct t_value *res;
   struct t_token *token;
-  
-  printf("Top of exec_stmt()\n");
   
   if (parse_stmt(&exec->parser) < 0) {
     res = NULL;
@@ -184,6 +215,32 @@ struct t_value * exec_icode(struct t_exec *exec, struct t_icode *icode)
     else if (icode->type == I_EQ) {
       intval = opnd1->intval == opnd2->intval;
     }
+    else if (icode->type == I_ASSIGN) {
+      struct t_var *var;
+      if (opnd1->type != VAL_VAR) {
+        fprintf(stderr, "Left side of assignment must be a variable. Got %s instead.\n", value_types[opnd1->type]);
+        return NULL;
+      }
+      var = var_lookup(exec, opnd1->stringval);
+      if (var) {
+        if (var->value->type != opnd2->type) {
+          fprintf(stderr, "Type mismatch when assigning new value: %s = %s\n", opnd1->stringval, value_types[opnd2->type]);
+          return NULL;
+        }
+      }
+      else {
+        var = var_new(opnd1->stringval, opnd2);
+        list_push(&exec->vars, var);
+      }
+      
+      if (var->value->type == VAL_INT) {
+        var->value->intval = opnd2->intval;
+      }
+      else {
+        fprintf(stderr, "Don't know how to assign %s type value\n", value_types[opnd2->type]);
+        return NULL;
+      }
+    }
     else {
       fprintf(stderr, "Don't know how to handle %s icode\n", icodes[icode->type]);
       return NULL;
@@ -193,6 +250,40 @@ struct t_value * exec_icode(struct t_exec *exec, struct t_icode *icode)
   }
   
   return ret;
+}
+
+struct t_var * var_new(char *name, struct t_value *clonefrom)
+{
+  struct t_var *var;
+  
+  var = malloc(sizeof(struct t_var));
+  var->name = malloc(sizeof(char) * (strlen(name) + 1));
+  strcpy(var->name, name);
+  
+  var->value = malloc(sizeof(struct t_value));
+  memcpy(var->value, clonefrom, sizeof(struct t_value));
+  
+  return var;
+}
+
+void var_close(struct t_var *var)
+{
+  if (var->name) free(var->name);
+  if (var->value) free(var->value);
+}
+
+struct t_var * var_lookup(struct t_exec *exec, char *name)
+{
+  struct item *item;
+  
+  item = exec->vars.first;
+  while (item) {
+    if (strcmp(((struct t_var *) item->value)->name, name) == 0) {
+      return item->value;
+    }
+  }
+  
+  return NULL;
 }
 
 /*

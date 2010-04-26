@@ -324,7 +324,7 @@ int parse(struct t_parser *parser)
 
   if (token->type != TT_EOF) {
     fprintf(stderr, "Unexpected token: %s", token_format(token));
-    return 0;
+    return -1;
   }
   
   return 0;

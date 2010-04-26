@@ -12,6 +12,7 @@ struct t_exec {
   struct t_parser parser;
   struct list stack;
   struct list functions;
+  struct list vars;
   struct item *current;
 };
 
@@ -24,8 +25,16 @@ struct t_expr * exec_eval(struct t_exec *exec, struct t_expr *expr);
 struct t_expr * exec_eval_stmt(struct t_exec *exec);
 
 struct t_value * exec_stmt(struct t_exec *exec);
+int exec_statements(struct t_exec *exec);
 int exec_run(struct t_exec *exec);
 struct t_value * exec_icode(struct t_exec *exec, struct t_icode *icode);
+
+/*
+ * Variables
+ */
+struct t_var * var_new(char *name, struct t_value *clonefrom);
+void var_close(struct t_var *var);
+struct t_var * var_lookup(struct t_exec *exec, char *name);
 
 void exec_addfunc(struct t_exec *exec, struct t_func *func);
 struct t_func * exec_funcbyname(struct t_exec *exec, char *name);
