@@ -454,18 +454,18 @@ int parse_simple(struct t_parser *parser)
     create_icode_append(parser, I_MUL, NULL);
   }
   
-  token = parser_token(parser);
-  if (!compare_multiple_strings(token->buf, ops)) {
-    return 0;
-  }
-  itype = strcmp(token->buf, "-")==0 ? I_SUB : I_ADD;
-  
-  token = parser_next(parser);
   do {
+    token = parser_token(parser);
+    if (!compare_multiple_strings(token->buf, ops)) {
+      break;
+    }
+    itype = strcmp(token->buf, "-")==0 ? I_SUB : I_ADD;
+    token = parser_next(parser);
+
     if (parse_term(parser) < 0) return -1;
     create_icode_append(parser, itype, NULL);
     token = parser_token(parser);
-  } while (compare_multiple_strings(token->buf, ops));
+  } while (1);
   
   return 0;
 }

@@ -2,6 +2,7 @@
 #include <assert.h>
 #include "exec.h"
 #include "util.h"
+#include "parser.h"
 
 struct item *firstfunc = NULL;
 struct item *lastfunc = NULL;
@@ -9,13 +10,16 @@ struct item *lastfunc = NULL;
 /*
  * Initialize an execution environment.
  */
-int exec_init(struct t_exec *exec) {
+int exec_init(struct t_exec *exec, FILE *in) {
+  if (parser_init(&exec->parser, in)) return -1;
   list_init(&exec->stack);
   list_init(&exec->functions);
+  exec->current = NULL;
   return 0;
 }
 
 int exec_close(struct t_exec *exec) {
+  parser_close(&exec->parser);
   list_empty(&exec->stack);
   list_empty(&exec->functions);
   return 0;
@@ -92,10 +96,110 @@ struct t_expr * exec_eval(struct t_exec *exec, struct t_expr *expr) {
   return res;
 }
 
+struct t_value * exec_stmt(struct t_exec *exec)
+{
+  struct t_value *res;
+  struct t_token *token;
+  
+  printf("Top of exec_stmt()\n");
+  
+  if (parse_stmt(&exec->parser) < 0) {
+    res = NULL;
+  }
+  else {
+    if (exec_run(exec) < 0) {
+      res = NULL;
+    }
+    else {
+      res = list_pop(&exec->stack);
+    }
+  }
+  
+  token = parser_token(&exec->parser);
+  
+  if (!res) {
+    while (token->type != TT_EOL && token->type != TT_EOF) {
+      token = parser_next(&exec->parser);
+    }
+  }
+  
+  while (token->type == TT_EOL) {
+    token = parser_next(&exec->parser);
+  }
+  
+  return res;
+}
+
+int exec_run(struct t_exec *exec)
+{
+  struct t_icode *icode;
+  
+  if (!exec->current) {
+    exec->current = exec->parser.output.first;
+  }
+  while (exec->current) {
+    icode = (struct t_icode *) exec->current->value;
+    if (exec_icode(exec, icode) < 0) {
+      return -1;
+    }
+    exec->current = exec->current->next;
+  }
+  
+  return 0;
+}
+
+struct t_value * exec_icode(struct t_exec *exec, struct t_icode *icode)
+{
+  struct t_value *opnd1, *opnd2;
+  struct t_value *ret;
+  int intval;
+  
+  if (icode->type == I_PUSH) {
+    assert(icode->operand);
+    list_push(&exec->stack, icode->operand);
+    ret = icode->operand;
+  }
+  else if (icode->type == I_POP) {
+    ret = list_pop(&exec->stack);
+  }
+  else {
+    opnd2 = list_pop(&exec->stack);
+    opnd1 = list_pop(&exec->stack);
+    if (icode->type == I_ADD) {
+      intval = opnd1->intval + opnd2->intval;
+    }
+    else if (icode->type == I_SUB) {
+      intval = opnd1->intval - opnd2->intval;
+    }
+    else if (icode->type == I_MUL) {
+      intval = opnd1->intval * opnd2->intval;
+    }
+    else if (icode->type == I_DIV) {
+      if (opnd2->intval == 0) {
+        fprintf(stderr, "Divide by zero: %d / %d", opnd1->intval, opnd2->intval);
+        return NULL;
+      }
+      intval = opnd1->intval / opnd2->intval;
+    }
+    else if (icode->type == I_EQ) {
+      intval = opnd1->intval == opnd2->intval;
+    }
+    else {
+      fprintf(stderr, "Don't know how to handle %s icode\n", icodes[icode->type]);
+      return NULL;
+    }
+    ret = create_num_from_int(intval);
+    list_push(&exec->stack, ret);
+  }
+  
+  return ret;
+}
+
 /*
  * Invoke a function.
  */
-struct t_expr * exec_invoke(struct t_exec *exec, struct t_expr *expr) {
+struct t_expr * exec_invoke(struct t_exec *exec, struct t_expr *expr)
+{
   struct t_expr *arg;
   struct t_expr *res;
   struct t_fcall *call;

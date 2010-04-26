@@ -59,7 +59,10 @@ int main(int argc, char** argv) {
   struct t_token *token;
   int i = 0;
   
-  exec_init(&exec);
+  if (exec_init(&exec, stdin) < 0) {
+    fprintf(stderr, "Failed in initialize exec\n");
+    exit(1);
+  }
   
   /* Add a function definition */
   func_hello.name = "hello";
@@ -73,11 +76,6 @@ int main(int argc, char** argv) {
   func_add.name = "add";
   func_add.invoke = &myadd;
   exec_addfunc(&exec, &func_add);
-  
-  if (parser_init(&parser, stdin)) {
-    fprintf(stderr, "Failed to initialize parser\n");
-    exit(1);
-  }
   
   do {
     expr = parser_parse(&parser);
