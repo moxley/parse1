@@ -42,6 +42,8 @@
 #define I_ASSIGN    8
 #define I_EQ        9
 #define I_NE        10
+#define I_JMP       11
+#define I_JZ        12
 
 extern char *parser_keywords[];
 extern char *icodes[];
@@ -123,6 +125,7 @@ void parser_pushtoken(struct t_parser *parser);
 struct t_token * parser_poptoken(struct t_parser *parser);
 
 int parse(struct t_parser *parser);
+int parse_block(struct t_parser *parser);
 int parse_stmt(struct t_parser *parser);
 int parse_if(struct t_parser *parser);
 int parse_assign(struct t_parser *parser);

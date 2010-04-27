@@ -27,6 +27,8 @@ char *icodes[] = {
   "ASSIGN",
   "EQ",
   "NE",
+  "JMP",
+  "JZ"
 };
 
 const char *value_types[] = {
@@ -165,7 +167,7 @@ int parse(struct t_parser *parser)
   } while (token->type != TT_EOF);
   
   if (token->type != TT_EOF) {
-    fprintf(stderr, "Unexpected token: %s", token_format(token));
+    fprintf(stderr, "%s(): Unexpected token: %s\n", __FUNCTION__, token_format(token));
     return -1;
   }
   
@@ -175,21 +177,134 @@ int parse(struct t_parser *parser)
 int parse_stmt(struct t_parser *parser)
 {
   struct t_token *token = NULL;
+  int ret;
+  debug(2, "%s(): Begin\n", __FUNCTION__);
 
   token = parser_token(parser);
-  
-  parse_expr(parser);
-  token = parser_token(parser);
-  if (token->type == TT_EQUAL) {
-    if (parse_assign(parser) < 0) return -1;
+  while (token->type == TT_EOL || token->type == TT_SEMI) {
+    token = parser_next(parser);
   }
-
-  return 0;
+  if (token->type == TT_EOF) {
+    ret = 0;
+  }
+  else {
+    if (token->type == TT_NAME && strcmp("if", token->buf) == 0) {
+      ret = parse_if(parser);
+    }
+    else {
+      parse_expr(parser);
+      token = parser_token(parser);
+      debug(3, "%s() line %d: Token: %s\n", __FUNCTION__, __LINE__, token_format(token));
+      if (token->type == TT_EQUAL) {
+        if (parse_assign(parser) < 0) return -1;
+        token = parser_token(parser);
+      }
+      while (token->type == TT_EOL || token->type == TT_SEMI) {
+        token = parser_next(parser);
+      }
+      debug(3, "%s(): Token before POP: %s\n", __FUNCTION__, token_format(token));
+      create_icode_append(parser, I_POP, NULL);
+      ret = 0;
+    }
+  }
+  
+  debug(2, "%s(): End\n", __FUNCTION__);
+  
+  return ret;
 }
 
 int parse_if(struct t_parser *parser)
 {
-  return -1;
+  struct t_token *token;
+  struct t_icode *start;
+  int ret;
+  debug(2, "%s(): Begin\n", __FUNCTION__);
+  
+  /*
+  if 1 == 2
+    stmt1
+    stmt2
+  else if 1 == 3
+    stmt3
+    stmt4
+  else
+    stmt5
+    stmt6
+  end
+  stmt7
+  */
+  /*
+  1. push 1
+  2. push 2
+  3. ==
+  4. jmz +4
+  5. stmt1
+  6. stmt2
+  7. jmp +10
+  8. push 1
+  9. push 3
+  10. ==
+  11. jmz +4
+  12. stmt3
+  13. stmt4
+  14. jmp +2
+  15. stmt5
+  16. stmt6
+  17. stmt7
+  */
+  /*
+   * Parse conditional
+   */
+  token = parser_next(parser);
+  if (parse_expr(parser) < -1) return -1;
+  token = parser_token(parser);
+  while (token->type == TT_EOL || token->type == TT_SEMI) {
+    token = parser_next(parser);
+  }
+  create_icode_append(parser, I_JZ, NULL);
+  
+  do {
+    debug(3, "%s():  Token before statement within IF block: %s\n", __FUNCTION__, token_format(token));
+    debug(3, "%s():  Parsing statement within IF block.\n", __FUNCTION__);
+    if (parse_stmt(parser) < -1) return -1;
+    token = parser_token(parser);
+    debug(3, "%s():  Token after statement within IF block: %s\n", __FUNCTION__, token_format(token));
+    if (token->type == TT_EOF) {
+      fprintf(stderr, "%s(): Unexpected end=of-file within IF statement.\n", __FUNCTION__);
+      ret = -1;
+      break;
+    }
+    else if (token->type == TT_NAME && strcmp("else", token->buf) == 0) {
+      create_icode_append(parser, I_JMP, NULL);
+      token = parser_next(parser);
+      if (token->type == TT_NAME && strcmp("if", token->buf) == 0) {
+        debug(3, "%s(): IF:ELSE IF\n", __FUNCTION__);
+        token = parser_next(parser);
+        if (parse_expr(parser) < -1) {
+          ret = -1;
+          break;
+        }
+        token = parser_token(parser);
+        while (token->type == TT_EOL || token->type == TT_SEMI) {
+          token = parser_next(parser);
+        }
+        create_icode_append(parser, I_JZ, NULL);
+      }
+      else {
+        create_icode_append(parser, I_JZ, NULL);
+        debug(3, "%s(): IF:ELSE\n", __FUNCTION__);
+      }
+    }
+    else if (token->type == TT_NAME && strcmp("end", token->buf) == 0) {
+      debug(3, "%s(): IF:END\n", __FUNCTION__);
+      token = parser_next(parser);
+      ret = 0;
+      break;
+    }
+  } while (1);
+  
+  debug(2, "%s(): End\n", __FUNCTION__);
+  return ret;
 }
 
 int parse_assign(struct t_parser *parser)
@@ -502,14 +617,14 @@ char * format_value(struct t_value *value)
     show_literal = 1;
   }
   else if (value->type == VAL_VAR) {
-    len = snprintf(valuebuf, PARSER_SCRATCH_BUF, "%s", value->name);
+    len = snprintf(valuebuf, PARSER_SCRATCH_BUF, "var:%s", value->name);
     if (len > PARSER_SCRATCH_BUF) {
       strcpy(valuebuf, toobigval);
     }
     show_literal = 1;
   }
   else if (value->type == VAL_FCALL) {
-    len = snprintf(valuebuf, PARSER_SCRATCH_BUF, "%s(argc=%d)", value->name, value->argc);
+    len = snprintf(valuebuf, PARSER_SCRATCH_BUF, "func:%s(argc=%d)", value->name, value->argc);
     if (len > PARSER_SCRATCH_BUF) {
       strcpy(valuebuf, toobigval);
     }

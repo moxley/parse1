@@ -165,9 +165,13 @@ struct t_char * scanner_nextc(struct t_scanner *scanner) {
     c = malloc(sizeof(struct t_char));
     memset(c, 0, sizeof(struct t_char));
     c->c = getc(scanner->in);
-    if (!scanner->current || (scanner->current->c == '\r' && c->c != '\n') || scanner->current->c == '\n') {
+    if (!scanner->current) {
       c->col = 0;
       c->row = 0;
+    }
+    else if ((scanner->current->c == '\r' && c->c != '\n') || scanner->current->c == '\n') {
+      c->col = 0;
+      c->row = scanner->current->row + 1;
     }
     else {
       c->col = scanner->current->col + 1;

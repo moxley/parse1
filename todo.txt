@@ -1,4 +1,3 @@
 TODO
 
-( ) Assignments, variables
-
+( ) IF statements
