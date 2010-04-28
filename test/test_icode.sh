@@ -5,9 +5,8 @@ exp='1 + 3 * (5 - 1) / a
 b = 2 + 3
 c = 3 == 4 - 1
 2 + 2 * 3 - 1
-funcA()
+funcA(2, 3, 4==4)
 '
 
-exp='funcA(7, 8, 9)'
 echo "Expression: $exp"
 echo "$exp" | ./bin/test_icode

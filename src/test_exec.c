@@ -1,7 +1,16 @@
+/*
+ * Test the interpreter.
+ */
+
 #include <stdio.h>
 #include "exec.h"
 #include "util.h"
 
+/*
+ * C-based function that will be called by interpreted code.
+ *
+ * Simply returns the value of the first argument.
+ */
 int myfunc(struct t_func *func, struct list *args, struct t_value *ret) {
   struct t_value *arg;
   

@@ -1,3 +1,6 @@
+/*
+ * Test executing statements, one at a time.
+ */
 #include <stdio.h>
 #include "exec.h"
 
@@ -5,6 +8,8 @@ int main(int argc, char** argv) {
   struct t_exec exec;
   int i = 0;
   struct t_value *res;
+  
+  debug_level = 1;
   
   if (exec_init(&exec, stdin) < 0) {
     fprintf(stderr, "Failed to exec\n");
