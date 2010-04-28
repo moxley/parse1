@@ -31,3 +31,8 @@ end
 b = 9
 EOF
 echo "Expected: a=1, b=9"
+
+./bin/test_exec <<EOF
+if 1 == 1;a = 1;else; a = 3;end;b = 9;;c=4;;
+EOF
+echo "Expected: a=1, b=9, c=4"
