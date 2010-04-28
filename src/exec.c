@@ -133,7 +133,6 @@ int exec_run(struct t_exec *exec)
   }
   while (exec->current) {
     icode = (struct t_icode *) exec->current->value;
-    debug(1, "Executing icode type=%s\n", icodes[icode->type]);
     if (!exec_icode(exec, icode)) {
       debug(1, "%s(): returning -1 at line %d\n", __FUNCTION__, __LINE__);
       return -1;
@@ -147,8 +146,10 @@ int exec_run(struct t_exec *exec)
 struct t_value * exec_icode(struct t_exec *exec, struct t_icode *icode)
 {
   struct t_value *opnd1, *opnd2;
-  struct t_value *ret;
+  struct t_value *ret = &nullvalue;
   int intval;
+  
+  debug(1, "%s(): Executing icode addr=%d: %s\n", __FUNCTION__, icode->addr, format_icode(&exec->parser, icode));
   
   if (icode->type == I_PUSH) {
     assert(icode->operand);
@@ -156,12 +157,12 @@ struct t_value * exec_icode(struct t_exec *exec, struct t_icode *icode)
     ret = icode->operand;
   }
   else if (icode->type == I_POP) {
+    debug(3, "%s(): Before pop, stack size: %d\n", __FUNCTION__, exec->stack.size);
     ret = list_pop(&exec->stack);
   }
   else if (icode->type == I_FCALL) {
-    debug(3, "%s(): icode->type == I_FCALL\n", __FUNCTION__);
-    debug(3, "Stack size at line %d: %d\n", __LINE__, exec->stack.size);
-    debug(3, "Top of stack at line %d: %s\n", __LINE__, format_value(list_last(&exec->stack)));
+    debug(3, "%s(): Stack size at line %d: %d\n", __FUNCTION__, __LINE__, exec->stack.size);
+    debug(3, "%s(): Top of stack at line %d: %s\n", __FUNCTION__, __LINE__, format_value(list_last(&exec->stack)));
     
     struct t_func * func;
     func = exec_funcbyname(exec, icode->operand->name);
@@ -191,6 +192,27 @@ struct t_value * exec_icode(struct t_exec *exec, struct t_icode *icode)
       return NULL;
     }
     
+  }
+  else if (icode->type == I_JMP || icode->type == I_JZ) {
+    struct t_icode *jmp = icode;
+    int do_jump = 1;
+    
+    if (jmp->type == I_JZ) {
+      ret = list_pop(&exec->stack);
+      if (ret->intval) do_jump = 0;
+    }
+    if (do_jump) {
+      int i;
+      int offset = jmp->operand->intval;
+
+      debug(3, "%s(): Doing jump. offset=%d\n", __FUNCTION__, offset);
+      
+      // Increment offset-1 because the instruction pointer will get incremented anyway.
+      for (i=0; i < offset-1; i++) {
+        exec->current = exec->current->next;
+        assert(exec->current);
+      }
+    }
   }
   else {
     opnd2 = list_pop(&exec->stack);

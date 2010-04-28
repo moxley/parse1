@@ -49,6 +49,7 @@ extern char *parser_keywords[];
 extern char *icodes[];
 extern const char *value_types[];
 extern int value_types_len;
+extern struct t_value nullvalue;
 
 struct t_parse_error {
   struct t_token token;
@@ -106,6 +107,7 @@ struct t_icode {
   int type;
   struct t_value *operand;
   char *formatbuf;
+  int addr;
 };
 
 /*
