@@ -19,7 +19,7 @@ int main(int argc, char* argv[]) {
   struct t_var *var;
   struct t_func *func;
   
-  debug_level = 3;
+  debug_level = 1;
   
   do {
     if (exec_init(&exec, stdin) < 0) {

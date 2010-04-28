@@ -348,8 +348,8 @@ int parse_if(struct t_parser *parser)
 
       /* Set the JMP offset for the last conditional, if there was no 'else' block. */
       if (prev_jmp) {
-        prev_jmp->operand->intval = after_addr = prev_jmp->addr;
-        debug(3, "%s(): Set JMP offset for prev conditional to %d\n", __FUNCTION__, prev_jmp->operand->intval);
+        prev_jmp->operand->intval = after_addr - prev_jmp->addr;
+        debug(3, "%s(): Set JMP offset for prev conditional (%d) to %d\n", __FUNCTION__, prev_jmp->addr, prev_jmp->operand->intval);
       }
       
       /*
