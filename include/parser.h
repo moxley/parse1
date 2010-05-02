@@ -62,6 +62,7 @@ struct t_parser {
   struct t_expr *stmt;
   //struct list list;
   struct list output;
+  int max_output;
   char formatbuf[PARSER_FORMAT_BUF_SIZE];
 };
 
@@ -108,6 +109,7 @@ struct t_icode {
   struct t_value *operand;
   char *formatbuf;
   int addr;
+  struct t_token *token;
 };
 
 /*

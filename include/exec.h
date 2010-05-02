@@ -19,6 +19,7 @@ struct t_exec {
   struct list formats;
 };
 
+int exec_main(int argc, char* argv[]);
 int exec_init(struct t_exec *exec, FILE *in);
 int exec_close(struct t_exec *exec);
 struct t_expr * exec_push(struct t_exec *exec, struct t_expr *expr);

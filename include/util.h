@@ -1,6 +1,8 @@
 #ifndef util_h
 #define util_h
 
+#define DBG(level, fmt, ...)   debug(level, "%s(): " fmt "\n", __FUNCTION__, ## __VA_ARGS__)
+
 extern int debug_level;
 extern FILE *debug_stream;
 

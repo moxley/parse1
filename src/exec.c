@@ -97,10 +97,12 @@ struct t_value * exec_stmt(struct t_exec *exec)
   struct t_value *res;
   struct t_token *token;
   
+  debug(1, "%s(): Calling parse_stmt()\n", __FUNCTION__);
   if (parse_stmt(&exec->parser) < 0) {
     res = NULL;
   }
   else {
+    debug(1, "%s(): Calling exec_run()\n", __FUNCTION__);
     if (exec_run(exec) < 0) {
       res = NULL;
     }
@@ -166,6 +168,10 @@ struct t_value * exec_icode(struct t_exec *exec, struct t_icode *icode)
     
     struct t_func * func;
     func = exec_funcbyname(exec, icode->operand->name);
+    if (!func) {
+      fprintf(stderr, "Error: Function %s() is not defined, on Line %d.\n", icode->operand->name, icode->token->row+1);
+      return NULL;
+    }
     
     /* Prepare the arguments */
     struct list a, args;

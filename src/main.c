@@ -11,24 +11,18 @@
  *
  * Simply returns the value of the first argument.
  */
-int myfunc(struct t_func *func, struct list *args, struct t_value *ret) {
+int my_println(struct t_func *func, struct list *args, struct t_value *ret) {
   struct t_value *arg;
   
   arg = args->first->value;
+  printf("%d\n", arg->intval);
 
-  ret->type = VAL_INT;
-  ret->intval = arg->intval;
-  
   return 0;
 }
 
 int main(int argc, char* argv[]) {
   struct t_exec exec;
-  struct item *item;
-  struct t_var *var;
   struct t_func *func;
-  
-  debug_level = 1;
   
   do {
     if (exec_init(&exec, stdin) < 0) {
@@ -38,29 +32,17 @@ int main(int argc, char* argv[]) {
     
     exec.parser.max_output = 100;
   
-    func = func_new("funcA");
-    func->invoke = &myfunc;
+    func = func_new("println");
+    func->invoke = &my_println;
     exec_addfunc(&exec, func);
     
     if (exec_statements(&exec) < 0) {
-      fprintf(stderr, "exec_statements() failed\n");
       break;
-    }
-    
-    item = exec.vars.first;
-    if (item) {
-      printf("Vars:\n");
-      while (item) {
-        var = (struct t_var *) item->value;
-        printf("  %s=%d\n", var->name, var->value->intval);
-        item = item->next;
-      }
     }
     
   } while (0);
   
   exec_close(&exec);
 
-  printf("Done.\n");
   return 0;
 }
