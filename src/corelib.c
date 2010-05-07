@@ -15,7 +15,12 @@ int fn_println(struct t_func *func, struct list *args, struct t_value *ret)
   struct t_value *arg;
   
   arg = args->first->value;
-  printf("%d\n", arg->intval);
+  if (arg->type == VAL_STRING) {
+    printf("%s\n", arg->stringval);
+  }
+  else {
+    printf("%d\n", arg->intval);
+  }
 
   return 0;
 }

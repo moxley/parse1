@@ -5,8 +5,8 @@ all: bin/print_tokens bin/escape_string bin/list_errors bin/test_list bin/test_i
 bin/run: src/main.c lib/exec.o lib/scanner.o lib/parser.o lib/corelib.o lib/util.o
 	cc $(CFLAGS) -o bin/run src/main.c lib/exec.o lib/scanner.o lib/parser.o lib/corelib.o lib/util.o
 
-bin/test_exec: src/test_exec.c lib/exec.o lib/scanner.o lib/parser.o lib/util.o
-	cc $(CFLAGS) -o bin/test_exec src/test_exec.c lib/exec.o lib/scanner.o lib/parser.o lib/util.o
+bin/test_exec: src/test_exec.c lib/exec.o lib/scanner.o lib/corelib.o lib/parser.o lib/util.o
+	cc $(CFLAGS) -o bin/test_exec src/test_exec.c lib/exec.o lib/scanner.o lib/corelib.o lib/parser.o lib/util.o
 
 bin/test_execstmt: src/test_execstmt.c lib/exec.o lib/scanner.o lib/parser.o lib/util.o
 	cc $(CFLAGS) -o bin/test_execstmt src/test_execstmt.c lib/exec.o lib/scanner.o lib/parser.o lib/util.o

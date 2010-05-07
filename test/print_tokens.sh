@@ -7,4 +7,3 @@ a = 1 + 2
 'joe\'s'
 func()
 EOF
-

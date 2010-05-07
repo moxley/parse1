@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include "exec.h"
 #include "util.h"
+#include "corelib.h"
 
 /*
  * C-based function that will be called by interpreted code.
@@ -36,6 +37,8 @@ int main(int argc, char* argv[]) {
       break;
     }
     
+    core_apply(&exec);
+
     exec.parser.max_output = 100;
   
     func = func_new("funcA");

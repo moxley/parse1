@@ -512,6 +512,10 @@ int parse_factor(struct t_parser *parser)
   else if (token->type == TT_NAME) { // variable
     if (parse_name(parser) < 0) return -1;
   }
+  else if (token->type == TT_STRING) {
+    if (!create_icode_append(parser, I_PUSH, create_str(token->buf))) return -1;
+    parser_next(parser);
+  }
   else {
     // Higher-level caller needs to display the error message
     return -1;
