@@ -61,6 +61,18 @@ void exec_addfunc(struct t_exec *exec, struct t_func *func) {
 }
 
 /*
+ * Alternate for exec_addfunc()
+ */
+struct t_func * exec_addfunc2(struct t_exec *exec, char *name, int (*fn)(struct t_func *func, struct list *args, struct t_value *ret))
+{
+  struct t_func *func;
+  func = func_new(name);
+  func->invoke = fn;
+  exec_addfunc(exec, func);
+  return func;
+}
+
+/*
  * Find a function by name
  */
 struct t_func * exec_funcbyname(struct t_exec *exec, char *name) {

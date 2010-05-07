@@ -12,11 +12,13 @@
 extern char *error_names[];
 
 /* Parse errors */
-#define PERR_NONE 0
-#define PERR_MAX_TOKEN_SIZE 1
-#define PERR_MAX_NUM_SIZE 2
-#define PERR_MAX_NAME_SIZE 3
-#define PERR_MAX_ERRORS 4
+#define PERR_NONE            0
+#define PERR_MAX_TOKEN_SIZE  1
+#define PERR_MAX_NUM_SIZE    2
+#define PERR_MAX_NAME_SIZE   3
+#define PERR_MAX_ERRORS      4
+#define PERR_MAX_STRING_SIZE 5
+#define PERR_UNEXPECTED_EOF  6
 
 extern char *parse_error_names[];
 
@@ -34,6 +36,7 @@ extern char *parse_error_names[];
 #define TT_PARENR  9
 #define TT_COMMA   10
 #define TT_SEMI    11
+#define TT_STRING  12
 
 extern char *token_types[];
 
@@ -52,6 +55,7 @@ extern char * scanner_cc_names[];
 
 #define MAX_NUM_LEN 4
 #define MAX_NAME_LEN 50
+#define MAX_STRING_LEN 50
 
 extern struct t_indent indent;
 
@@ -87,10 +91,11 @@ struct t_scanner {
 };
 
 int scanner_init(struct t_scanner *scanner, FILE *in);
-void _scanner_init_token(struct t_scanner *scanner, struct t_token *token, int type);
-struct t_token * scanner_init_token(struct t_scanner *scanner, int type);
-void token_copy(struct t_token *dest, const struct t_token *source);
 void scanner_close(struct t_scanner *scanner);
+
+struct t_token * scanner_create_token(struct t_scanner *scanner, int type);
+void scanner_init_token(struct t_scanner *scanner, struct t_token *token, int type);
+void token_copy(struct t_token *dest, const struct t_token *source);
 
 struct t_char * scanner_c(struct t_scanner *scanner);
 int scanner_ch(struct t_scanner *scanner);
@@ -114,6 +119,7 @@ struct t_token * scanner_parse_num(struct t_scanner *scanner);
 struct t_token * scanner_parse_name(struct t_scanner *scanner);
 struct t_token * scanner_parse_op(struct t_scanner *scanner);
 struct t_token * scanner_parse_delim(struct t_scanner *scanner);
+struct t_token * scanner_parse_string(struct t_scanner *scanner);
 
 //int token_append(struct t_scanner *scanner);
 int scanner_skip_whitespace(struct t_scanner *scanner);

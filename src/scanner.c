@@ -17,11 +17,13 @@ char *error_names[] = {
 };
 
 char *parse_error_names[] = {
-  "PERR_NONE",
-  "PERR_MAX_TOKEN_SIZE",
-  "PERR_MAX_NUM_SIZE",
-  "PERR_MAX_NAME_SIZE",
-  "PERR_MAX_ERRORS"
+  "NONE",
+  "MAX_TOKEN_SIZE",
+  "MAX_NUM_SIZE",
+  "MAX_NAME_SIZE",
+  "MAX_ERRORS",
+  "MAX_STRING_SIZE",
+  "UNEXPECTED_EOF"
 };
 
 char *token_types[] = {
@@ -35,7 +37,9 @@ char *token_types[] = {
   "TT_PLUS",
   "TT_PARENL",
   "TT_PARENR",
-  "TT_COMMA"
+  "TT_COMMA",
+  "TT_SEMI",
+  "TT_STRING"
 };
 
 char * scanner_cc_names[] = {
@@ -54,7 +58,11 @@ char *scanner_operators = "~!@%^&*-+=|?/<>";
 char *scanner_delimiters = "()[]{}.:,;";
 char *scanner_quotes = "\"'`";
 
-int scanner_init(struct t_scanner *scanner, FILE *in) {
+/*
+ * Initialize a scanner.
+ */
+int scanner_init(struct t_scanner *scanner, FILE *in)
+{
   memset(scanner, 0, sizeof(struct t_scanner));
   scanner->in = in;
   
@@ -63,7 +71,7 @@ int scanner_init(struct t_scanner *scanner, FILE *in) {
     scanner_cc_table_initialized = 1;
   }
 
-  _scanner_init_token(scanner, &scanner->unknown, TT_UNKNOWN);
+  scanner_init_token(scanner, &scanner->unknown, TT_UNKNOWN);
 
   list_init(&scanner->t_list);
   list_init(&scanner->t_pushback);
@@ -73,55 +81,9 @@ int scanner_init(struct t_scanner *scanner, FILE *in) {
   return 0;
 }
 
-void _scanner_init_token(struct t_scanner *scanner, struct t_token *token, int type) {
-  struct t_char *c;
-  
-  c = scanner_c(scanner);
-  memset(token, 0, sizeof(struct t_token));
-  
-  token->type = type;
-  token->buf = NULL;
-  token->error = 0;
-  token->row = c->row;
-  token->col = c->col;
-  token->formatbuf = NULL;
-}
-
-struct t_token * scanner_init_token(struct t_scanner *scanner, int type) {
-  struct t_token *token;
-  
-  token = malloc(sizeof(struct t_token));
-  _scanner_init_token(scanner, token, type);
-  
-  list_push(&scanner->t_list, token);
-  scanner->token = token;
-  
-  return scanner->token;
-}
-
-void token_copy(struct t_token *dest, const struct t_token *source) {
-  dest->type = source->type;
-  if (dest->buf) free(dest->buf);
-  if (!source->buf) {
-	dest->buf = NULL;
-  }
-  else {
-    dest->buf = malloc(sizeof(char) * (strlen(source->buf) + 1));
-    strcpy(dest->buf, source->buf);
-  }
-  dest->error = source->error;
-  dest->row = source->row;
-  dest->col = source->col;
-  if (dest->formatbuf) free(dest->formatbuf);
-  if (!source->formatbuf) {
-	dest->formatbuf = NULL;
-  }
-  else {
-    dest->formatbuf = malloc(sizeof(char) * (strlen(source->formatbuf) + 1));
-    strcpy(dest->formatbuf, source->formatbuf);
-  }
-}
-
+/**
+ * Deallocate or close attached resources from a scanner.
+ */
 void scanner_close(struct t_scanner *scanner) {
   struct t_token *t;
   struct t_char *c;
@@ -149,6 +111,64 @@ void scanner_close(struct t_scanner *scanner) {
   list_empty(&scanner->c_pushback);
   list_empty(&scanner->t_list);
   list_empty(&scanner->t_pushback);
+}
+
+/**
+ * Allocate and initialize a token.
+ */
+struct t_token * scanner_create_token(struct t_scanner *scanner, int type)
+{
+  struct t_token *token;
+  
+  token = malloc(sizeof(struct t_token));
+  scanner_init_token(scanner, token, type);
+  
+  list_push(&scanner->t_list, token);
+  scanner->token = token;
+  
+  return scanner->token;
+}
+
+/**
+ * Initialize a token.
+ */
+void scanner_init_token(struct t_scanner *scanner, struct t_token *token, int type)
+{
+  struct t_char *c;
+  
+  c = scanner_c(scanner);
+  memset(token, 0, sizeof(struct t_token));
+  
+  token->type = type;
+  token->buf = NULL;
+  token->error = 0;
+  token->row = c->row;
+  token->col = c->col;
+  token->formatbuf = NULL;
+}
+
+void token_copy(struct t_token *dest, const struct t_token *source)
+{
+  dest->type = source->type;
+  if (dest->buf) free(dest->buf);
+  if (!source->buf) {
+	dest->buf = NULL;
+  }
+  else {
+    dest->buf = malloc(sizeof(char) * (strlen(source->buf) + 1));
+    strcpy(dest->buf, source->buf);
+  }
+  dest->error = source->error;
+  dest->row = source->row;
+  dest->col = source->col;
+  if (dest->formatbuf) free(dest->formatbuf);
+  if (!source->formatbuf) {
+	dest->formatbuf = NULL;
+  }
+  else {
+    dest->formatbuf = malloc(sizeof(char) * (strlen(source->formatbuf) + 1));
+    strcpy(dest->formatbuf, source->formatbuf);
+  }
 }
 
 int scanner_nextch(struct t_scanner *scanner) {
@@ -298,8 +318,8 @@ char * token_format(struct t_token *token) {
            "<#token {type: %s, error: %s, row: %d, col: %d, buf: '%s'}>",
            token_types[token->type],
            parse_error_names[token->error],
-		   token->row,
-		   token->col,
+           token->row,
+           token->col,
            esc_buf);
   if (token->formatbuf) free(token->formatbuf);
   if (len > SCRATCH_BUF_SIZE) {
@@ -331,7 +351,7 @@ struct t_token * scanner_next(struct t_scanner *scanner) {
   c = scanner_c(scanner);
   
   if (c->c_class == CC_EOF) {
-    token = scanner_init_token(scanner, TT_EOF);
+    token = scanner_create_token(scanner, TT_EOF);
     scanner_token_char(scanner);
   }
   else if (c->c_class == CC_EOL) {
@@ -349,8 +369,11 @@ struct t_token * scanner_next(struct t_scanner *scanner) {
   else if (c->c_class == CC_DELIM) {
     token = scanner_parse_delim(scanner);
   }
+  else if (c->c_class == CC_QUOTE) {
+    token = scanner_parse_string(scanner);
+  }
   else {
-    token = scanner_init_token(scanner, TT_UNKNOWN);
+    token = scanner_create_token(scanner, TT_UNKNOWN);
     scanner_token_char(scanner);
     if (!scanner_nextc(scanner)) return NULL;
     if (scanner->debug) {
@@ -406,7 +429,7 @@ struct t_token * scanner_parse_eol(struct t_scanner *scanner) {
   char *str;
   
   ch = scanner_ch(scanner);
-  token = scanner_init_token(scanner, TT_EOL);
+  token = scanner_create_token(scanner, TT_EOL);
   size = 2;
   if (ch == '\r') {
     ch = scanner_nextch(scanner);
@@ -441,7 +464,7 @@ struct t_token * scanner_parse_num(struct t_scanner *scanner) {
   struct t_char *c;
   
   c = scanner_c(scanner);
-  token = scanner_init_token(scanner, TT_NUM);
+  token = scanner_create_token(scanner, TT_NUM);
   for (i=0; 1; ++i) {
     if (i >= MAX_NUM_LEN) {
       token->type = TT_ERROR;
@@ -474,7 +497,7 @@ struct t_token * scanner_parse_name(struct t_scanner *scanner) {
   int i = 0;
   
   c = scanner_c(scanner);
-  token = scanner_init_token(scanner, TT_NAME);
+  token = scanner_create_token(scanner, TT_NAME);
   do {
     if (i == MAX_NAME_LEN) {
       token->type = TT_ERROR;
@@ -504,13 +527,13 @@ struct t_token * scanner_parse_op(struct t_scanner *scanner)
   
   c = scanner_c(scanner);
   if (c->c == '+') {
-    token = scanner_init_token(scanner, TT_PLUS);
+    token = scanner_create_token(scanner, TT_PLUS);
   }
   else if (c->c == '=') {
-    token = scanner_init_token(scanner, TT_EQUAL);
+    token = scanner_create_token(scanner, TT_EQUAL);
   }
   else {
-    token = scanner_init_token(scanner, TT_UNKNOWN);
+    token = scanner_create_token(scanner, TT_UNKNOWN);
   }
   for (i=0; c->c_class == CC_OP && i<SCRATCH_BUF_SIZE; i++) {
     buf[buf_i++] = c->c;
@@ -548,20 +571,103 @@ struct t_token * scanner_parse_delim(struct t_scanner *scanner)
     break;
   }
 
-  token = scanner_init_token(scanner, type);
+  token = scanner_create_token(scanner, type);
   scanner_token_char(scanner);
   if (scanner_nextc(scanner) == NULL) return NULL;
   return token;
 }
 
-int scanner_skip_whitespace(struct t_scanner *scanner) {
+struct t_token * scanner_parse_string(struct t_scanner *scanner)
+{
+  char quotechar;
+  struct t_char *c;
+  int i;
+  int len = 0;
+  char buf[MAX_STRING_LEN+1];
+  struct t_token *token;
+  int append = 1;
+  int token_type = TT_STRING;
+  int token_error = PERR_NONE;
+  
+  quotechar = scanner_ch(scanner);
+  i = 0;
+  while (1) {
+    c = scanner_nextc(scanner);
+    if (i >= MAX_STRING_LEN) {
+      append = 0;
+    }
+    
+    if (c->c_class == CC_EOF) {
+      token_type = TT_ERROR;
+      token_error = PERR_UNEXPECTED_EOF;
+      break;
+    }
+    else if (c->c_class == CC_QUOTE && c->c == quotechar) {
+      c = scanner_nextc(scanner);
+      // We're done
+      break;
+    }
+    else if (c->c == '\\') {
+      // Escape sequence
+      c = scanner_nextc(scanner);
+      if (c->c_class == CC_EOF) {
+        token_type = TT_ERROR;
+        token_error = PERR_UNEXPECTED_EOF;
+        break;
+      }
+      if (c->c == 'n') {
+        if (append) buf[len++] = '\n';
+        i++;
+      }
+      else if (c->c == 'r') {
+        if (append) buf[len++] = '\r';
+        i++;
+      }
+      else if (c->c == 'b') {
+        if (append) buf[len++] = '\b';
+        i++;
+      }
+      else {
+        if (append) buf[len++] = c->c;
+        i++;
+      }
+    }
+    else {
+      if (append) buf[len++] = c->c;
+      i++;
+    }
+  }
+  
+  if (i >= MAX_STRING_LEN) {
+    token_type = TT_ERROR;
+    token_error = PERR_MAX_STRING_SIZE;
+    buf[MAX_STRING_LEN] = '\0';
+  }
+  else {
+    buf[i] = '\0';
+  }
+
+  // Create the token
+  token = scanner_create_token(scanner, token_type);
+  token->error= token_error;
+
+  // Copy buf to token
+  token->buf = malloc(sizeof(char) * (len + 1));
+  strcpy(token->buf, buf);
+  
+  return token;
+}
+
+int scanner_skip_whitespace(struct t_scanner *scanner)
+{
   while (scanner_c(scanner)->c_class == CC_SPACE) {
     if (scanner_nextc(scanner) == NULL) return 1;
   }
   return 0;
 }
 
-int scanner_charclass(int c) {
+int scanner_charclass(int c)
+{
   if (c == EOF) {
     return CC_EOF;
   }
@@ -573,7 +679,8 @@ int scanner_charclass(int c) {
   }
 }
 
-void scanner_build_cc_table() {
+void scanner_build_cc_table()
+{
   int i;
   for (i=0; i < CC_TABLE_SIZE; ++i) {
     if (i == EOF) {
@@ -610,7 +717,8 @@ void scanner_build_cc_table() {
 /**
  * Escape special characters as required by a C-formatted string.
  */
-int util_escape_string(char buf[], int buf_size, const char *str) {
+int util_escape_string(char buf[], int buf_size, const char *str)
+{
   int i;
   int buf_i = 0;
   int est_i = 0;
@@ -629,7 +737,8 @@ int util_escape_string(char buf[], int buf_size, const char *str) {
   return est_i;
 }
 
-int util_escape_char(char *buf, char c) {
+int util_escape_char(char *buf, char c)
+{
   int buf_i = 0;
   if (c == '\'' || c == '"' || c == '\\') {
     buf[buf_i++] = '\\';

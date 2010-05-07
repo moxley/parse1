@@ -101,7 +101,7 @@ int parser_count_errors(struct t_parser *parser) {
     if (token->type == TT_ERROR) {
       parser->errors[error_i] = malloc(sizeof(struct t_parse_error));
       if (error_i == MAX_PARSE_ERRORS) {
-        scanner_init_token(&(parser->scanner), TT_ERROR);
+        //scanner_init_token(&(parser->scanner), TT_ERROR);
         token_copy(&(parser->errors[MAX_PARSE_ERRORS]->token), token);
         parser->errors[MAX_PARSE_ERRORS]->token.error = PERR_MAX_ERRORS;
         break;
@@ -118,11 +118,24 @@ int parser_count_errors(struct t_parser *parser) {
   return parser->error;
 }
 
+struct t_token * handle_token_error(struct t_parser *parser, struct t_token *token)
+{
+  if (!token) {
+    perror("Fatal error");
+    exit(1);
+  }
+  else if (token->type == TT_ERROR) {
+    fprintf(stderr, "Parse error: %s", parse_error_names[token->type]);
+  }
+  
+  return token;
+}
+
 /*
  * Get next token
  */
 struct t_token *parser_next(struct t_parser *parser) {
-  return scanner_next(&parser->scanner);
+  return handle_token_error(parser, scanner_next(&parser->scanner));
 }
 
 /*
@@ -143,11 +156,16 @@ struct t_token * parser_poptoken(struct t_parser *parser) {
   return scanner_pop(&parser->scanner);
 }
 
+/*
+ * Parse a normal list of statements.
+ */
 int parse(struct t_parser *parser)
 {
   struct t_token *token = NULL;
   
-  token = parser_token(parser);
+  do {
+    token = parser_token(parser);
+  } while (token->type == TT_ERROR);
   
   do {
     if (parse_stmt(parser) < 0) return -1;
@@ -156,18 +174,11 @@ int parse(struct t_parser *parser)
     if (token->type == TT_EOF) {
       break;
     }
-    //else if (token->type != TT_EOL && token->type != TT_SEMI) {
-    //  break;
-    //}
     
-    // TODO
-    //if (token->type == TT_EOL || token->type == TT_SEMI) {
-    //  if (!create_icode_append(parser, I_POP, NULL)) return -1;
-    //}
-    
-    while (token->type == TT_EOL || token->type == TT_SEMI) {
+    while (token->type == TT_EOL || token->type == TT_SEMI || token->type == TT_ERROR) {
       token = parser_next(parser);
     }
+    
   } while (token->type != TT_EOF);
   
   if (token->type != TT_EOF) {
