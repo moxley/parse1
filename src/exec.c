@@ -1,8 +1,26 @@
 #include <string.h>
 #include <assert.h>
+#include <stdio.h>
 #include "exec.h"
 #include "util.h"
 #include "parser.h"
+
+const struct t_icode_op operations[] = {
+  {0, &exec_i_nop, NULL, NULL},
+  {0, &exec_i_push, NULL, NULL},
+  {0, &exec_i_pop, NULL, NULL},
+  {0, &exec_i_fcall, NULL, NULL},
+  {2, NULL, NULL, &exec_i_add},
+  {2, NULL, NULL, &exec_i_sub},
+  {2, NULL, NULL, &exec_i_mul},
+  {2, NULL, NULL, &exec_i_div},
+  {2, NULL, NULL, &exec_i_assign},
+  {2, NULL, NULL, &exec_i_eq},
+  {2, NULL, NULL, &exec_i_ne},
+  {0, &exec_i_jmp, NULL, NULL},
+  {0, &exec_i_jz, NULL, NULL}
+};
+const int operations_len = sizeof(operations) / sizeof(struct t_icode_op);
 
 /*
  * Initialize an execution environment.
@@ -22,19 +40,19 @@ int exec_close(struct t_exec *exec) {
   
   parser_close(&exec->parser);
   
-  item = exec->stack.first;
-  while (item) {
-    value_close(item->value);
-    item = item->next;
-  }
-  list_empty(&exec->stack);
-  
   item = exec->functions.first;
   while (item) {
-    func_close(item->value);
+    func_free(item->value);
     item = item->next;
   }
   list_empty(&exec->functions);
+
+  item = exec->values.first;
+  while (item) {
+    value_free(item->value);
+    item = item->next;
+  }
+  list_empty(&exec->values);
   
   item = exec->vars.first;
   while (item) {
@@ -56,9 +74,9 @@ int exec_close(struct t_exec *exec) {
 /*
  * Add a function.
  */
-void exec_addfunc(struct t_exec *exec, struct t_func *func) {
-  list_push(&exec->functions, func);
-}
+//void exec_addfunc(struct t_exec *exec, struct t_func *func) {
+//  list_push(&exec->functions, func);
+//}
 
 /*
  * Alternate for exec_addfunc()
@@ -68,7 +86,8 @@ struct t_func * exec_addfunc2(struct t_exec *exec, char *name, int (*fn)(struct 
   struct t_func *func;
   func = func_new(name);
   func->invoke = fn;
-  exec_addfunc(exec, func);
+  //exec_addfunc(exec, func);
+  list_push(&exec->functions, func);
   return func;
 }
 
@@ -141,13 +160,15 @@ struct t_value * exec_stmt(struct t_exec *exec)
 int exec_run(struct t_exec *exec)
 {
   struct t_icode *icode;
+  struct t_value *ret;
   
   if (!exec->current) {
     exec->current = exec->parser.output.first;
   }
   while (exec->current) {
     icode = (struct t_icode *) exec->current->value;
-    if (!exec_icode(exec, icode)) {
+    ret = exec_icode(exec, icode);
+    if (!ret) {
       debug(1, "%s(): returning -1 at line %d\n", __FUNCTION__, __LINE__);
       return -1;
     }
@@ -159,134 +180,258 @@ int exec_run(struct t_exec *exec)
 
 struct t_value * exec_icode(struct t_exec *exec, struct t_icode *icode)
 {
+  struct t_value *ret;
   struct t_value *opnd1, *opnd2;
-  struct t_value *ret = &nullvalue;
-  int intval;
+  struct t_icode_op op;
   
   debug(1, "%s(): Executing icode addr=%d: %s\n", __FUNCTION__, icode->addr, format_icode(&exec->parser, icode));
   
-  if (icode->type == I_PUSH) {
-    assert(icode->operand);
-    list_push(&exec->stack, icode->operand);
-    ret = icode->operand;
+  if (icode->type < 0 || icode->type >= operations_len) {
+    fprintf(stderr, "Invalid operation type (value=%d)\n", icode->type);
+    return NULL;
   }
-  else if (icode->type == I_POP) {
-    debug(3, "%s(): Before pop, stack size: %d\n", __FUNCTION__, exec->stack.size);
-    ret = list_pop(&exec->stack);
+  
+  op = operations[icode->type];
+  
+  if (op.opnd_count == 0) {
+    ret = op.op0(exec, icode);
   }
-  else if (icode->type == I_FCALL) {
-    debug(3, "%s(): Stack size at line %d: %d\n", __FUNCTION__, __LINE__, exec->stack.size);
-    debug(3, "%s(): Top of stack at line %d: %s\n", __FUNCTION__, __LINE__, format_value(list_last(&exec->stack)));
-    
-    struct t_func * func;
-    func = exec_funcbyname(exec, icode->operand->name);
-    if (!func) {
-      fprintf(stderr, "Error: Function %s() is not defined, on Line %d.\n", icode->operand->name, icode->token->row+1);
-      return NULL;
-    }
-    
-    /* Prepare the arguments */
-    struct list a, args;
-    int i;
-    list_init(&a);
-    list_init(&args);
-    for (i=0; i < icode->operand->argc; i++) {
-      list_push(&a, list_pop(&exec->stack));
-    }
-    for (i=0; i < icode->operand->argc; i++) {
-      list_push(&args, list_pop(&a));
-    }
-    
-    if (func->invoke) {
-      ret = calloc(1, sizeof(struct t_value));
-      if (func->invoke(func, &args, ret) < 0) {
-        fprintf(stderr, "(TODO) Error in native function: %s()\n", func->name);
-        return NULL;
-      }
-      list_push(&exec->stack, ret);
-    }
-    else {
-      fprintf(stderr, "%s(): Unsupported function type for %s().\n", __FUNCTION__, func->name);
-      return NULL;
-    }
-    
+  else if (op.opnd_count == 1) {
+    opnd1 = list_pop(&exec->stack);
+    assert(opnd1);
+    ret = op.op1(exec, icode, opnd1);
+    list_push(&exec->stack, ret);
   }
-  else if (icode->type == I_JMP || icode->type == I_JZ) {
-    struct t_icode *jmp = icode;
-    int do_jump = 1;
-    
-    if (jmp->type == I_JZ) {
-      ret = list_pop(&exec->stack);
-      if (ret->intval) do_jump = 0;
-    }
-    if (do_jump) {
-      int i;
-      int offset = jmp->operand->intval;
+  else if (op.opnd_count == 2) {
+    opnd2 = list_pop(&exec->stack);
+    assert(opnd2);
+    opnd1 = list_pop(&exec->stack);
+    assert(opnd1);
+    ret = op.op2(exec, icode, opnd1, opnd2);
+    list_push(&exec->stack, ret);
+  }
+  else {
+    fprintf(stderr, "Invalid number of operations (%d) for op '%s'\n", op.opnd_count, icodes[icode->type]);
+    return NULL;
+  }
+  
+  return ret;
+}
 
-      debug(3, "%s(): Doing jump. offset=%d\n", __FUNCTION__, offset);
-      
-      // Increment offset-1 because the instruction pointer will get incremented anyway.
-      for (i=0; i < offset-1; i++) {
-        exec->current = exec->current->next;
-        assert(exec->current);
-      }
+struct t_value * exec_i_pop(struct t_exec *exec, struct t_icode *icode)
+{
+  debug(3, "%s(): Before pop, stack size: %d\n", __FUNCTION__, exec->stack.size);
+  return list_pop(&exec->stack);
+}
+
+struct t_value * exec_i_nop(struct t_exec *exec, struct t_icode *icode)
+{
+  return &nullvalue;
+}
+
+struct t_value * exec_i_push(struct t_exec *exec, struct t_icode *icode)
+{
+  assert(icode->operand);
+  list_push(&exec->stack, icode->operand);
+  return icode->operand;
+}
+
+struct t_value * exec_i_fcall(struct t_exec *exec, struct t_icode *fcall)
+{
+  struct list a, args;
+  int i;
+  struct t_value *ret = &nullvalue;
+  struct t_func * func;
+  
+  debug(3, "%s(): Stack size at line %d: %d\n", __FUNCTION__, __LINE__, exec->stack.size);
+  debug(3, "%s(): Top of stack at line %d: %s\n", __FUNCTION__, __LINE__, format_value(list_last(&exec->stack)));
+  
+  func = exec_funcbyname(exec, fcall->operand->name);
+  if (!func) {
+    fprintf(stderr, "Error: Function %s() is not defined, on Line %d.\n", fcall->operand->name, fcall->token->row+1);
+    return NULL;
+  }
+  
+  /* Prepare the arguments */
+  list_init(&a);
+  list_init(&args);
+  for (i=0; i < fcall->operand->argc; i++) {
+    list_push(&a, list_pop(&exec->stack));
+  }
+  for (i=0; i < fcall->operand->argc; i++) {
+    list_push(&args, list_pop(&a));
+  }
+  
+  if (func->invoke) {
+    ret = calloc(1, sizeof(struct t_value));
+    list_push(&exec->values, ret);
+    if (func->invoke(func, &args, ret) < 0) {
+      fprintf(stderr, "(TODO) Error in native function: %s()\n", func->name);
+      return NULL;
+    }
+    list_push(&exec->stack, ret);
+  }
+  else {
+    fprintf(stderr, "%s(): Unsupported function type for %s().\n", __FUNCTION__, func->name);
+    return NULL;
+  }
+  
+  return ret;
+}
+
+struct t_value * exec_i_jmp(struct t_exec *exec, struct t_icode *jmp)
+{
+  int i;
+  int offset = jmp->operand->intval;
+
+  debug(3, "%s(): Doing jump. offset=%d\n", __FUNCTION__, offset);
+  
+  // Increment offset-1 because the instruction pointer will get incremented anyway.
+  for (i=0; i < offset-1; i++) {
+    exec->current = exec->current->next;
+    assert(exec->current);
+  }
+  
+  return &nullvalue;
+}
+
+struct t_value * exec_i_jz(struct t_exec *exec, struct t_icode *jmp)
+{
+  struct t_value *ret = &nullvalue;
+  
+  ret = list_pop(&exec->stack);
+  if (ret->intval == 0) {
+    exec_i_jmp(exec, jmp);
+  }
+  
+  return ret;
+}
+
+struct t_value * exec_i_assign(struct t_exec *exec, struct t_icode *icode, struct t_value *opnd1, struct t_value *opnd2)
+{
+  struct t_var *var;
+  struct t_value *ret = NULL;
+  
+  if (opnd1->type != VAL_VAR) {
+    fprintf(stderr, "Left side of assignment must be a variable. Got %s=%d instead.\n", value_types[opnd1->type], opnd1->intval);
+    return NULL;
+  }
+  var = var_lookup(exec, opnd1->name);
+  if (var) {
+    if (var->value->type != opnd2->type) {
+      fprintf(stderr, "Type mismatch when assigning new value: %s = %s\n", opnd1->name, value_types[opnd2->type]);
+      return NULL;
     }
   }
   else {
-    opnd2 = list_pop(&exec->stack);
-    opnd1 = list_pop(&exec->stack);
-    if (icode->type == I_ADD) {
-      intval = opnd1->intval + opnd2->intval;
+    var = var_new(opnd1->name, opnd2);
+    list_push(&exec->vars, var);
+  }
+
+  if (var->value->type == VAL_INT) {
+    var->value->intval = opnd2->intval;
+    ret = create_num_from_int(var->value->intval);
+    list_push(&exec->values, ret);
+  }
+  else if (var->value->type == VAL_STRING) {
+    var->value->stringval = opnd2->stringval;
+    ret = var->value;
+  }
+  else {
+    fprintf(stderr, "Don't know how to assign %s type value\n", value_types[opnd2->type]);
+    return NULL;
+  }
+
+  return ret;
+}
+
+struct t_value * exec_i_add(struct t_exec *exec, struct t_icode *icode, struct t_value *opnd1, struct t_value *opnd2)
+{
+  struct t_value *ret = NULL;
+  char buf[PARSER_SCRATCH_BUF+1];
+  
+  if (opnd1->type == VAL_INT) {
+    ret = create_num_from_int(opnd1->intval + opnd2->intval);
+    list_push(&exec->values, ret);
+  }
+  else if (opnd1->type == VAL_STRING) {
+    int opnd2len;
+    char *opnd2str;
+    
+    if (opnd2->type == VAL_STRING) {
+      opnd2str = opnd2->stringval;
     }
-    else if (icode->type == I_SUB) {
-      intval = opnd1->intval - opnd2->intval;
-    }
-    else if (icode->type == I_MUL) {
-      intval = opnd1->intval * opnd2->intval;
-    }
-    else if (icode->type == I_DIV) {
-      if (opnd2->intval == 0) {
-        fprintf(stderr, "Divide by zero: %d / %d", opnd1->intval, opnd2->intval);
-        return NULL;
-      }
-      intval = opnd1->intval / opnd2->intval;
-    }
-    else if (icode->type == I_EQ) {
-      intval = opnd1->intval == opnd2->intval;
-    }
-    else if (icode->type == I_ASSIGN) {
-      struct t_var *var;
-      if (opnd1->type != VAL_VAR) {
-        fprintf(stderr, "Left side of assignment must be a variable. Got %s=%d instead.\n", value_types[opnd1->type], opnd1->intval);
-        return NULL;
-      }
-      var = var_lookup(exec, opnd1->name);
-      if (var) {
-        if (var->value->type != opnd2->type) {
-          fprintf(stderr, "Type mismatch when assigning new value: %s = %s\n", opnd1->name, value_types[opnd2->type]);
-          return NULL;
-        }
-      }
-      else {
-        var = var_new(opnd1->name, opnd2);
-        list_push(&exec->vars, var);
-      }
-      
-      if (var->value->type == VAL_INT) {
-        var->value->intval = opnd2->intval;
-      }
-      else {
-        fprintf(stderr, "Don't know how to assign %s type value\n", value_types[opnd2->type]);
-        return NULL;
-      }
+    else if (opnd2->type == VAL_INT) {
+      snprintf(buf, PARSER_SCRATCH_BUF, "%d", opnd2->intval);
+      opnd2str = buf;
     }
     else {
-      fprintf(stderr, "Don't know how to handle %s icode\n", icodes[icode->type]);
+      fprintf(stderr, "%s(): Don't know how to concatenate a %s value to a string.", __FUNCTION__, value_types[opnd2->type]);
       return NULL;
     }
-    ret = create_num_from_int(intval);
-    list_push(&exec->stack, ret);
+    opnd2len = strlen(opnd2str);
+    
+    ret = create_value(VAL_STRING);
+    list_push(&exec->values, ret);
+    ret->stringval = malloc(sizeof(char) * (strlen(opnd1->stringval) + opnd2len + 1));
+    value_init(ret, VAL_STRING);
+    strcpy(ret->stringval, opnd1->stringval);
+    strcat(ret->stringval, opnd2str);
   }
+  
+  return ret;
+}
+
+struct t_value * exec_i_sub(struct t_exec *exec, struct t_icode *icode, struct t_value *opnd1, struct t_value *opnd2)
+{
+  struct t_value *ret;
+
+  ret = create_num_from_int(opnd1->intval - opnd2->intval);
+  list_push(&exec->values, ret);
+  
+  return ret;
+}
+
+struct t_value * exec_i_mul(struct t_exec *exec, struct t_icode *icode, struct t_value *opnd1, struct t_value *opnd2)
+{
+  struct t_value *ret;
+
+  ret = create_num_from_int(opnd1->intval * opnd2->intval);
+  list_push(&exec->values, ret);
+  
+  return ret;
+}
+
+struct t_value * exec_i_div(struct t_exec *exec, struct t_icode *icode, struct t_value *opnd1, struct t_value *opnd2)
+{
+  struct t_value *ret;
+  
+  if (opnd2->intval == 0) {
+    fprintf(stderr, "Divide by zero: %d / %d", opnd1->intval, opnd2->intval);
+    return NULL;
+  }
+  ret = create_num_from_int(opnd1->intval / opnd2->intval);
+  list_push(&exec->values, ret);
+  
+  return ret;
+}
+
+struct t_value * exec_i_eq(struct t_exec *exec, struct t_icode *icode, struct t_value *opnd1, struct t_value *opnd2)
+{
+  struct t_value *ret;
+  
+  ret = create_num_from_int(opnd1->intval == opnd2->intval);
+  list_push(&exec->values, ret);
+  
+  return ret;
+}
+
+struct t_value * exec_i_ne(struct t_exec *exec, struct t_icode *icode, struct t_value *opnd1, struct t_value *opnd2)
+{
+  struct t_value *ret;
+  
+  ret = create_num_from_int(opnd1->intval != opnd2->intval);
+  list_push(&exec->values, ret);
   
   return ret;
 }

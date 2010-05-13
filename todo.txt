@@ -1,3 +1,6 @@
 TODO
 
-( ) IF statements
+(X) Assign string to variable
+(X) Factor out i_code functions
+( ) String concatenation: "Hello, " + name
+( ) Type conversion: "He is " + age + " years old."

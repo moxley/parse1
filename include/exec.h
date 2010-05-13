@@ -17,7 +17,19 @@ struct t_exec {
   struct list vars;
   struct item *current;
   struct list formats;
+  struct list values;
 };
+
+/* ICode Operation */
+struct t_icode_op {
+  int opnd_count;
+  struct t_value * (*op0)(struct t_exec *exec, struct t_icode *icode);
+  struct t_value * (*op1)(struct t_exec *exec, struct t_icode *icode, struct t_value *opnd);
+  struct t_value * (*op2)(struct t_exec *exec, struct t_icode *icode, struct t_value *opnd1, struct t_value *opnd2);
+};
+
+extern const struct t_icode_op operations[];
+extern const int operations_len;
 
 int exec_main(int argc, char* argv[]);
 int exec_init(struct t_exec *exec, FILE *in);
@@ -29,6 +41,21 @@ struct t_value * exec_stmt(struct t_exec *exec);
 int exec_statements(struct t_exec *exec);
 int exec_run(struct t_exec *exec);
 struct t_value * exec_icode(struct t_exec *exec, struct t_icode *icode);
+
+struct t_value * exec_i_nop(struct t_exec *exec, struct t_icode *icode);
+struct t_value * exec_i_pop(struct t_exec *exec, struct t_icode *icode);
+struct t_value * exec_i_push(struct t_exec *exec, struct t_icode *icode);
+struct t_value * exec_i_fcall(struct t_exec *exec, struct t_icode *fcall);
+struct t_value * exec_i_jmp(struct t_exec *exec, struct t_icode *jmp);
+struct t_value * exec_i_jz(struct t_exec *exec, struct t_icode *jmp);
+
+struct t_value * exec_i_assign(struct t_exec *exec, struct t_icode *icode, struct t_value *opnd1, struct t_value *opnd2);
+struct t_value * exec_i_add(struct t_exec *exec, struct t_icode *icode, struct t_value *opnd1, struct t_value *opnd2);
+struct t_value * exec_i_sub(struct t_exec *exec, struct t_icode *icode, struct t_value *opnd1, struct t_value *opnd2);
+struct t_value * exec_i_mul(struct t_exec *exec, struct t_icode *icode, struct t_value *opnd1, struct t_value *opnd2);
+struct t_value * exec_i_div(struct t_exec *exec, struct t_icode *icode, struct t_value *opnd1, struct t_value *opnd2);
+struct t_value * exec_i_eq(struct t_exec *exec, struct t_icode *icode, struct t_value *opnd1, struct t_value *opnd2);
+struct t_value * exec_i_ne(struct t_exec *exec, struct t_icode *icode, struct t_value *opnd1, struct t_value *opnd2);
 
 /*
  * Variables

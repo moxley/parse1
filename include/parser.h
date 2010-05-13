@@ -50,6 +50,8 @@ extern char *icodes[];
 extern const char *value_types[];
 extern int value_types_len;
 extern struct t_value nullvalue;
+extern struct t_value falsevalue;
+extern struct t_value truevalue;
 
 struct t_parse_error {
   struct t_token token;
@@ -128,6 +130,9 @@ struct t_token * parser_token(struct t_parser *parser);
 void parser_pushtoken(struct t_parser *parser);
 struct t_token * parser_poptoken(struct t_parser *parser);
 
+/*
+ * Parsing
+ */
 int parse(struct t_parser *parser);
 int parse_block(struct t_parser *parser);
 int parse_stmt(struct t_parser *parser);
@@ -141,12 +146,17 @@ int parse_factor(struct t_parser *parser);
 int parse_num(struct t_parser *parser);
 int parse_name(struct t_parser *parser);
 
+/*
+ * Values
+ */
 void value_init(struct t_value *value, int type);
 void value_close(struct t_value *value);
+void value_free(struct t_value *value);
 struct t_icode * icode_new(int type, struct t_value *operand);
 void icode_close(struct t_icode *icode);
 struct t_icode * create_icode_append(struct t_parser *parser, int type, struct t_value *value);
 char * format_icode(struct t_parser *parser, struct t_icode *icode);
+struct t_value * create_value(int type);
 struct t_value * create_num_from_int(int v);
 struct t_value * create_num_from_str(char * v);
 struct t_value * create_str(char *str);
@@ -167,5 +177,6 @@ int parser_fcall_close(struct t_expr *expr);
  */
 struct t_func * func_new(char *name);
 void func_close(struct t_func *func);
+void func_free(struct t_func *func);
 
 #endif

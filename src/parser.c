@@ -44,6 +44,8 @@ const char *value_types[] = {
 int value_types_len = sizeof(value_types) / sizeof(char *);
 char statement_buf[STATEMENT_FORMAT_BUF_SIZE];
 struct t_value nullvalue;
+struct t_value truevalue;
+struct t_value falsevalue;
 
 int parser_init(struct t_parser *parser, FILE *in) {
   memset(parser, 0, sizeof(struct t_parser));
@@ -52,7 +54,13 @@ int parser_init(struct t_parser *parser, FILE *in) {
   parser->max_output = -1;
   if (scanner_init(&(parser->scanner), in)) return 1;
   list_init(&parser->output);
+  
   value_init(&nullvalue, VAL_NULL);
+  value_init(&falsevalue, VAL_BOOL);
+  falsevalue.intval = 0;
+  value_init(&truevalue, VAL_BOOL);
+  truevalue.intval = 1;
+  
   return 0;
 }
 
@@ -78,7 +86,6 @@ int parser_close(struct t_parser *parser) {
     free(icode);
     item = item->next;
   }
-
   list_empty(&parser->output);
 
   return 0;
@@ -597,9 +604,11 @@ void icode_close(struct t_icode *icode)
 {
   if (icode->formatbuf) {
     free(icode->formatbuf);
+    icode->formatbuf = NULL;
   }
   if (icode->operand) {
-    free(icode->operand);
+    value_free(icode->operand);
+    icode->operand = NULL;
   }
 }
 
@@ -753,19 +762,43 @@ void value_init(struct t_value *value, int type)
   value->argc = 0;
 }
 
+struct t_value * create_value(int type)
+{
+  struct t_value *value;
+  
+  value = malloc(sizeof(struct t_value));
+  value_init(value, type);
+  
+  return value;
+}
+
 void value_close(struct t_value *value)
 {
-  if (value->stringval) free(value->stringval);
-  if (value->formatbuf) free(value->formatbuf);
-  if (value->name) free(value->name);
+  if (value->stringval) {
+    free(value->stringval);
+    value->stringval = NULL;
+  }
+  if (value->formatbuf) {
+    free(value->formatbuf);
+    value->formatbuf = NULL;
+  }
+  if (value->name) {
+    free(value->name);
+    value->name = NULL;
+  }
+}
+
+void value_free(struct t_value *value)
+{
+  value_close(value);
+  free(value);
 }
 
 struct t_value * create_num_from_int(int v)
 {
   struct t_value *value;
   
-  value = malloc(sizeof(struct t_value));
-  value_init(value, VAL_INT);
+  value = create_value(VAL_INT);
   value->intval = v;
   
   return value;
@@ -780,8 +813,7 @@ struct t_value * create_str(char *str)
 {
   struct t_value *value;
   
-  value = malloc(sizeof(struct t_value));
-  value_init(value, VAL_STRING);
+  value = create_value(VAL_STRING);
   value->len = strlen(str);
   value->stringval = malloc(sizeof(char) * (value->len + 1));
   strcpy(value->stringval, str);
@@ -793,9 +825,7 @@ struct t_value * create_var(char *name)
 {
   struct t_value *iden;
   
-  iden = malloc(sizeof(struct t_value));
-  value_init(iden, VAL_VAR);
-  
+  iden = create_value(VAL_VAR);
   iden->name = malloc(sizeof(char) * (strlen(name) + 1));
   strcpy(iden->name, name);
   
@@ -806,8 +836,7 @@ struct t_value * create_fcall(char *name, int argc)
 {
   struct t_value *fcall;
   
-  fcall = malloc(sizeof(struct t_value));
-  value_init(fcall, VAL_FCALL);
+  fcall = create_value(VAL_FCALL);
   
   fcall->name = malloc(sizeof(char) * (strlen(name) + 1));
   strcpy(fcall->name, name);
@@ -829,4 +858,11 @@ struct t_func * func_new(char *name)
 
 void func_close(struct t_func *func)
 {
+  free(func->name);
+}
+
+void func_free(struct t_func *func)
+{
+  func_close(func);
+  free(func);
 }
