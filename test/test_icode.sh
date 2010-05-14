@@ -6,6 +6,7 @@ b = 2 + 3
 c = 3 == 4 - 1
 2 + 2 * 3 - 1
 funcA(2, 3, 4==4)
+"string1" + " string2"
 '
 
 echo "Expression: $exp"

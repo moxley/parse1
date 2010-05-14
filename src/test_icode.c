@@ -14,6 +14,7 @@ int main(void) {
     fprintf(stderr, "Failed to initialize parser\n");
     return 1;
   }
+  parser.max_output = 200;
   
   parse(&parser);
   

@@ -617,8 +617,8 @@ struct t_icode * create_icode_append(struct t_parser *parser, int type, struct t
   struct t_icode *icode;
   struct t_token *token;
   
-  if (parser->output.size >= parser->max_output) {
-    fprintf(stderr, "Maximum number of icodes %d reached.", parser->output.size);
+  if (parser->max_output >= 0 && parser->output.size >= parser->max_output) {
+    fprintf(stderr, "Maximum number of icodes (%d) reached: %d\n", parser->max_output, parser->output.size);
     return NULL;
   }
   
