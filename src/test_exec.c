@@ -28,7 +28,13 @@ int main(int argc, char* argv[]) {
   struct item *item;
   struct t_var *var;
   
-  debug_level = 1;
+  if (argc > 1) {
+    debug_level = atoi(argv[1]);
+  }
+  else {
+    debug_level = 1;
+  }
+  printf("debug_level: %d\n", debug_level);
   
   do {
     if (exec_init(&exec, stdin) < 0) {
@@ -52,7 +58,12 @@ int main(int argc, char* argv[]) {
       printf("Vars:\n");
       while (item) {
         var = (struct t_var *) item->value;
-        printf("  %s=%d\n", var->name, var->value->intval);
+        if (var->value->type == VAL_STRING) {
+          printf("  %s=%s\n", var->name, var->value->stringval);
+        }
+        else {
+          printf("  %s=%d\n", var->name, var->value->intval);
+        }
         item = item->next;
       }
     }

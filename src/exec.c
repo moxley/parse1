@@ -374,7 +374,6 @@ struct t_value * exec_i_add(struct t_exec *exec, struct t_icode *icode, struct t
     ret = create_value(VAL_STRING);
     list_push(&exec->values, ret);
     ret->stringval = malloc(sizeof(char) * (strlen(opnd1->stringval) + opnd2len + 1));
-    value_init(ret, VAL_STRING);
     strcpy(ret->stringval, opnd1->stringval);
     strcat(ret->stringval, opnd2str);
   }

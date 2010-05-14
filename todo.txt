@@ -1,6 +1,6 @@
 TODO
 
-(X) Assign string to variable
-(X) Factor out i_code functions
-( ) String concatenation: "Hello, " + name
-( ) Type conversion: "He is " + age + " years old."
+( ) Improved toString framework:
+  - Maintain formatted string list
+  - Allocate max buffer size, then shrink to fit
+
