@@ -1,6 +1,4 @@
 TODO
 
-( ) Improved toString framework:
-  - Maintain formatted string list
-  - Allocate max buffer size, then shrink to fit
-
+( ) Function defs
+( ) While loop

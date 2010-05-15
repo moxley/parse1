@@ -750,6 +750,45 @@ char * format_value(struct t_value *value)
   return value->formatbuf;
 }
 
+char * value_to_s(struct t_value *value)
+{
+  char buf[PARSER_SCRATCH_BUF + 2 + 1];
+  char *b;
+  int len;
+  int i = 0;
+  
+  if (value->type == VAL_STRING) {
+    buf[i++] = '"';
+    len = util_escape_string(&buf[1], PARSER_SCRATCH_BUF, value->stringval);
+    if (len > PARSER_SCRATCH_BUF) {
+      i += PARSER_SCRATCH_BUF;
+    }
+    else {
+      i += len;
+    }
+    buf[i++] = '"';
+    buf[i++] = '\0';
+    len = i;
+    b = &buf[0];
+  }
+  else if (value->type == VAL_INT) {
+    len = snprintf(buf, PARSER_SCRATCH_BUF, "%d", value->intval);
+    if (len > PARSER_SCRATCH_BUF) {
+      len = PARSER_SCRATCH_BUF;
+    }
+    b = &buf[0];
+  }
+  else {
+    b = format_value(value);
+    len = strlen(b);
+  }
+  
+  value->to_s = malloc(sizeof(char) * (len + 1));
+  strcpy(value->to_s, b);
+  
+  return value->to_s;
+}
+
 void value_init(struct t_value *value, int type)
 {
   value->type = type;
@@ -758,6 +797,7 @@ void value_init(struct t_value *value, int type)
   value->stringval = NULL;
   value->len = 0;
   value->formatbuf = NULL;
+  value->to_s = NULL;
   value->name = NULL;
   value->argc = 0;
 }
@@ -781,6 +821,10 @@ void value_close(struct t_value *value)
   if (value->formatbuf) {
     free(value->formatbuf);
     value->formatbuf = NULL;
+  }
+  if (value->to_s) {
+    free(value->to_s);
+    value->to_s = NULL;
   }
   if (value->name) {
     free(value->name);

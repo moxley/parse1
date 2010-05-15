@@ -53,17 +53,15 @@ int main(int argc, char* argv[]) {
       break;
     }
     
+    /*
+     * Print all the vars
+     */
     item = exec.vars.first;
     if (item) {
       printf("Vars:\n");
       while (item) {
         var = (struct t_var *) item->value;
-        if (var->value->type == VAL_STRING) {
-          printf("  %s=%s\n", var->name, var->value->stringval);
-        }
-        else {
-          printf("  %s=%d\n", var->name, var->value->intval);
-        }
+        printf("  %s=%s\n", var->name, value_to_s(var->value));
         item = item->next;
       }
     }

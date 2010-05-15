@@ -89,6 +89,7 @@ struct t_value {
   char *name;
   int argc;
   char *formatbuf;
+  char *to_s;
 };
 
 struct t_func {
@@ -163,6 +164,7 @@ struct t_value * create_str(char *str);
 struct t_value * create_var(char *str);
 struct t_value * create_fcall(char *name, int argc);
 char * format_value(struct t_value *value);
+char * value_to_s(struct t_value *value);
 
 /*
  * fcall: Function call
