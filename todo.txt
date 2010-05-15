@@ -2,3 +2,4 @@ TODO
 
 ( ) Function defs
 ( ) While loop
+( ) Test parsing expressions that have error tokens

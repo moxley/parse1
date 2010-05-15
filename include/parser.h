@@ -44,6 +44,10 @@
 #define I_NE        10
 #define I_JMP       11
 #define I_JZ        12
+#define I_LT        13
+#define I_GT        14
+#define I_LE        15
+#define I_GE        16
 
 extern char *parser_keywords[];
 extern char *icodes[];
@@ -138,6 +142,7 @@ int parse(struct t_parser *parser);
 int parse_block(struct t_parser *parser);
 int parse_stmt(struct t_parser *parser);
 int parse_if(struct t_parser *parser);
+int parse_while(struct t_parser *parser);
 int parse_assign(struct t_parser *parser);
 int compare_multiple_strings(const char *source, char **list);
 int parse_expr(struct t_parser *parser);

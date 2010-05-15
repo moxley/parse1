@@ -39,7 +39,9 @@ char *token_types[] = {
   "TT_PARENR",
   "TT_COMMA",
   "TT_SEMI",
-  "TT_STRING"
+  "TT_STRING",
+  "TT_LT",
+  "TT_GT"
 };
 
 char * scanner_cc_names[] = {
@@ -531,6 +533,12 @@ struct t_token * scanner_parse_op(struct t_scanner *scanner)
   }
   else if (c->c == '=') {
     token = scanner_create_token(scanner, TT_EQUAL);
+  }
+  else if (c->c == '<') {
+    token = scanner_create_token(scanner, TT_LT);
+  }
+  else if (c->c == '>') {
+    token = scanner_create_token(scanner, TT_GT);
   }
   else {
     token = scanner_create_token(scanner, TT_UNKNOWN);

@@ -28,7 +28,11 @@ char *icodes[] = {
   "EQ",
   "NE",
   "JMP",
-  "JZ"
+  "JZ",
+  "LT",
+  "GT",
+  "LE",
+  "GE"
 };
 
 const char *value_types[] = {
@@ -218,6 +222,14 @@ int parse_stmt(struct t_parser *parser)
         token = parser_next(parser);
       }
     }
+    if (token->type == TT_NAME && strcmp("while", token->buf) == 0) {
+      ret = parse_while(parser);
+      if (ret < 0) return -1;
+      token = parser_token(parser);
+      while (token->type == TT_EOL || token->type == TT_SEMI) {
+        token = parser_next(parser);
+      }
+    }
     else {
       if (parse_expr(parser) < 0) return -1;
       token = parser_token(parser);
@@ -256,13 +268,14 @@ int parse_if(struct t_parser *parser)
   list_init(&block_ends);
   
   debug(3, "%s(): IF addr=%d\n", __FUNCTION__, parser->output.size);
+  
   /*
    * Parse conditional
    */
   token = parser_next(parser);
   if (parse_expr(parser) < -1) return -1;
   token = parser_token(parser);
-  while (token->type == TT_EOL || token->type == TT_SEMI) {
+  while (token && (token->type == TT_EOL || token->type == TT_SEMI || token->type == TT_ERROR)) {
     token = parser_next(parser);
   }
   
@@ -380,6 +393,76 @@ int parse_if(struct t_parser *parser)
   return ret;
 }
 
+int parse_while(struct t_parser *parser)
+{
+  int start_addr, end_addr;
+  struct t_token *token;
+  struct t_icode *jz, *jmp;
+  int ret = -1;
+  
+  start_addr = parser->output.size;
+  debug(2, "%s(): Begin. start_addr=%d\n", __FUNCTION__, start_addr);
+  
+  /*
+   * Parse conditional
+   */
+  token = parser_next(parser);
+  if (parse_expr(parser) < -1) return -1;
+  token = parser_token(parser);
+  while (token && (token->type == TT_EOL || token->type == TT_SEMI || token->type == TT_ERROR)) {
+    token = parser_next(parser);
+  }
+  
+  debug(3, "%s(): Conditional is parsed. addr=%d. Next token: %s\n", __FUNCTION__, parser->output.size, token_format(token));
+  
+  /*
+   * Create JMP instruction.
+   */
+  jz = create_icode_append(parser, I_JZ, create_num_from_int(0));
+  if (!jz) {
+    goto parse_while_end;
+  }
+  debug(3, "%s(). JZ: %s\n", __FUNCTION__, format_icode(parser, jz));
+
+  do {
+    if (parse_stmt(parser) < 0) {
+      token_format(token);
+      fprintf(stderr, "Syntax Error: Line %d, Column %d: Unrecognized token in WHILE conditional: '%s'\n", (token->row+1), (token->col+1), token->buf);
+      goto parse_while_end;
+    }
+    debug(3, "%s(). After parse_stmt(). addr=%d, token=%s\n", __FUNCTION__, parser->output.size, token_format(token));
+    token = parser_token(parser);
+    if (token->type == TT_EOF) {
+      fprintf(stderr, "%s(): Unexpected end=of-file within WHILE statement.\n", __FUNCTION__);
+      goto parse_while_end;
+    }
+    else if (token->type == TT_NAME && strcmp("end", token->buf) == 0) {
+      end_addr = parser->output.size;
+      debug(3, "%s(): WHILE:END. end_addr: %d\n", __FUNCTION__, end_addr);
+
+      jmp = create_icode_append(parser, I_JMP, create_num_from_int(start_addr - end_addr));
+      if (!jmp) {
+        goto parse_while_end;
+      }
+      debug(3, "%s(). JMP: %s\n", __FUNCTION__, format_icode(parser, jmp));
+      
+      jz->operand->intval = parser->output.size - jz->addr;
+      debug(3, "%s(). Set jz offset to %d\n", __FUNCTION__, jz->operand->intval);
+
+      token = parser_next(parser);
+      debug(3, "%s(). next token: %s\n", __FUNCTION__, token_format(token));
+      ret = 0;
+      break;
+    }
+  } while (1);
+  
+  parse_while_end:
+  
+  debug(3, "%s(). Returning with ret=%d\n", __FUNCTION__, ret);
+  
+  return ret;
+}
+
 int parse_assign(struct t_parser *parser)
 {
   struct t_token *token;
@@ -411,31 +494,51 @@ int compare_multiple_strings(const char *source, char **list)
 
 int parse_expr(struct t_parser *parser)
 {
-  //char *ops[] = {"==", "!=", "<", ">", "<=", ">=", "\0"};
-  char *ops[] = {"==", "!=", NULL};
-  struct t_token *token;
+  char *ops[] = {"==", "!=", "<", ">", "<=", ">=", NULL};
+  struct t_token *token, *op_token;
+  int ret = 0;
   
   token = parser_token(parser);
   debug(2, "%s(): Begin. token: %s\n", __FUNCTION__, token_format(token));
   
-  if (parse_simple(parser) < 0) return -1;
-  token = parser_token(parser);
-  if (!compare_multiple_strings(token->buf, ops)) {
-    return 0;
+  if (parse_simple(parser) < 0) {
+    return -1;
   }
+  token = parser_token(parser);
   
   while (compare_multiple_strings(token->buf, (char **) ops)) {
+    op_token = token;
     token = parser_next(parser);
-    if (parse_simple(parser) < 0) return -1;
-    if (strcmp("==", token->buf)) {
-      if (!create_icode_append(parser, I_EQ, NULL)) return -1;
+    
+    ret = -1;
+    if (parse_simple(parser) < 0) {
+      break;
     }
-    else if (strcmp("!=", token->buf)) {
-      if (!create_icode_append(parser, I_NE, NULL)) return -1;
+
+    if (strcmp("==", op_token->buf) == 0) {
+      if (!create_icode_append(parser, I_EQ, NULL)) break;
     }
+    else if (strcmp("!=", op_token->buf) == 0) {
+      if (!create_icode_append(parser, I_NE, NULL)) break;
+    }
+    else if (strcmp("<", op_token->buf) == 0) {
+      if (!create_icode_append(parser, I_LT, NULL)) break;
+    }
+    else if (strcmp(">", op_token->buf) == 0) {
+      if (!create_icode_append(parser, I_GT, NULL)) break;
+    }
+    else if (strcmp("<=", op_token->buf) == 0) {
+      if (!create_icode_append(parser, I_LE, NULL)) break;
+    }
+    else if (strcmp(">=", op_token->buf) == 0) {
+      if (!create_icode_append(parser, I_GE, NULL)) break;
+    }
+    ret = 0;
     token = parser_token(parser);
   }
-  return 0;
+  debug(2, "%s(): End. ret=%d, token: %s\n", __FUNCTION__, ret, token_format(token));
+
+  return ret;
 }
 
 int parse_simple(struct t_parser *parser)
@@ -467,6 +570,7 @@ int parse_simple(struct t_parser *parser)
     if (parse_term(parser) < 0) return -1;
     if (!create_icode_append(parser, itype, NULL)) return -1;
   } while (1);
+  debug(2, "%s(): End. token: %s\n", __FUNCTION__, token_format(token));
   
   return 0;
 }
@@ -485,7 +589,7 @@ int parse_term(struct t_parser *parser)
   
   do {
     if (!token->buf || !compare_multiple_strings(token->buf, ops)) {
-      return 0;
+      break;
     }
     itype = strcmp("/", token->buf) == 0 ? I_DIV : I_MUL;
     token = parser_next(parser);
@@ -493,6 +597,7 @@ int parse_term(struct t_parser *parser)
     if (!create_icode_append(parser, itype, NULL)) return -1;
     token = parser_token(parser);
   } while (1);
+  debug(2, "%s(): End. token: %s\n", __FUNCTION__, token_format(token));
   
   return 0;
 }
@@ -529,6 +634,7 @@ int parse_factor(struct t_parser *parser)
   }
 
   token = parser_token(parser);
+  debug(2, "%s(): End. token: %s\n", __FUNCTION__, token_format(token));
   
   return 0;
 }

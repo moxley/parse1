@@ -49,13 +49,17 @@ struct t_value * exec_i_fcall(struct t_exec *exec, struct t_icode *fcall);
 struct t_value * exec_i_jmp(struct t_exec *exec, struct t_icode *jmp);
 struct t_value * exec_i_jz(struct t_exec *exec, struct t_icode *jmp);
 
-struct t_value * exec_i_assign(struct t_exec *exec, struct t_icode *icode, struct t_value *opnd1, struct t_value *opnd2);
+struct t_value * exec_i_assign(struct t_exec *exec, struct t_icode *icode);
 struct t_value * exec_i_add(struct t_exec *exec, struct t_icode *icode, struct t_value *opnd1, struct t_value *opnd2);
 struct t_value * exec_i_sub(struct t_exec *exec, struct t_icode *icode, struct t_value *opnd1, struct t_value *opnd2);
 struct t_value * exec_i_mul(struct t_exec *exec, struct t_icode *icode, struct t_value *opnd1, struct t_value *opnd2);
 struct t_value * exec_i_div(struct t_exec *exec, struct t_icode *icode, struct t_value *opnd1, struct t_value *opnd2);
 struct t_value * exec_i_eq(struct t_exec *exec, struct t_icode *icode, struct t_value *opnd1, struct t_value *opnd2);
 struct t_value * exec_i_ne(struct t_exec *exec, struct t_icode *icode, struct t_value *opnd1, struct t_value *opnd2);
+struct t_value * exec_i_lt(struct t_exec *exec, struct t_icode *icode, struct t_value *opnd1, struct t_value *opnd2);
+struct t_value * exec_i_gt(struct t_exec *exec, struct t_icode *icode, struct t_value *opnd1, struct t_value *opnd2);
+struct t_value * exec_i_le(struct t_exec *exec, struct t_icode *icode, struct t_value *opnd1, struct t_value *opnd2);
+struct t_value * exec_i_ge(struct t_exec *exec, struct t_icode *icode, struct t_value *opnd1, struct t_value *opnd2);
 
 /*
  * Variables
