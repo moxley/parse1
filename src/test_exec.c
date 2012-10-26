@@ -35,7 +35,7 @@ int main(int argc, char* argv[]) {
     debug_level = 1;
   }
   printf("debug_level: %d\n", debug_level);
-  
+
   do {
     if (exec_init(&exec, stdin) < 0) {
       fprintf(stderr, "Failed to exec\n");
@@ -45,14 +45,14 @@ int main(int argc, char* argv[]) {
     core_apply(&exec);
 
     exec.parser.max_output = 100;
-  
+
     exec_addfunc2(&exec, "funcA", &myfunc);
-    
+
     if (exec_statements(&exec) < 0) {
       fprintf(stderr, "exec_statements() failed\n");
       break;
     }
-    
+
     /*
      * Print all the vars
      */
@@ -67,7 +67,7 @@ int main(int argc, char* argv[]) {
     }
     
   } while (0);
-  
+
   exec_close(&exec);
 
   printf("Done.\n");

@@ -39,6 +39,7 @@ struct t_expr * exec_pop(struct t_exec *exec);
 
 struct t_value * exec_stmt(struct t_exec *exec);
 int exec_statements(struct t_exec *exec);
+void exec_get_funcs(struct t_exec *exec);
 int exec_run(struct t_exec *exec);
 struct t_value * exec_icode(struct t_exec *exec, struct t_icode *icode);
 
@@ -48,6 +49,8 @@ struct t_value * exec_i_push(struct t_exec *exec, struct t_icode *icode);
 struct t_value * exec_i_fcall(struct t_exec *exec, struct t_icode *fcall);
 struct t_value * exec_i_jmp(struct t_exec *exec, struct t_icode *jmp);
 struct t_value * exec_i_jz(struct t_exec *exec, struct t_icode *jmp);
+struct t_value * exec_i_jst(struct t_exec *exec, struct t_icode *jmp);
+int exec_jump(struct t_exec *exec, int offset);
 
 struct t_value * exec_i_assign(struct t_exec *exec, struct t_icode *icode);
 struct t_value * exec_i_add(struct t_exec *exec, struct t_icode *icode, struct t_value *opnd1, struct t_value *opnd2);

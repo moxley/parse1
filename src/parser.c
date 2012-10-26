@@ -29,6 +29,7 @@ char *icodes[] = {
   "NE",
   "JMP",
   "JZ",
+  "JST",
   "LT",
   "GT",
   "LE",
@@ -46,6 +47,7 @@ const char *value_types[] = {
   "FCALL"
 };
 int value_types_len = sizeof(value_types) / sizeof(char *);
+
 char statement_buf[STATEMENT_FORMAT_BUF_SIZE];
 struct t_value nullvalue;
 struct t_value truevalue;
@@ -58,6 +60,7 @@ int parser_init(struct t_parser *parser, FILE *in) {
   parser->max_output = -1;
   if (scanner_init(&(parser->scanner), in)) return 1;
   list_init(&parser->output);
+  list_init(&parser->functions);
   
   value_init(&nullvalue, VAL_NULL);
   value_init(&falsevalue, VAL_BOOL);
@@ -73,24 +76,37 @@ int parser_close(struct t_parser *parser) {
   struct item *item;
   struct t_icode *icode;
   
+  DBG(2, "Begin.");
+
   /* Free the scanner */
   scanner_close(&(parser->scanner));
 
   /* Free the parser errors */
+  DBG(3, "Freeing parser errors");
   for (i=0; parser->errors[i]; i++) {
     free(parser->errors[i]);
   }
 
   /* Free the output */
+  DBG(3, "Freeing the output");
   item = parser->output.first;
-  icode = (struct t_icode *) item->value;
   while (item) {
     icode = (struct t_icode *) item->value;
-    icode_close(icode);
-    free(icode);
+    icode_free(icode);
     item = item->next;
   }
   list_empty(&parser->output);
+
+  /* Free the funcs */
+  DBG(3, "Freeing the funcs");
+  item = parser->functions.first;
+  while (item) {
+    func_free((struct t_func *) item->value);
+    item = item->next;
+  }
+  list_empty(&parser->functions);
+
+  DBG(3, "End.");
 
   return 0;
 }
@@ -224,6 +240,14 @@ int parse_stmt(struct t_parser *parser)
     }
     if (token->type == TT_NAME && strcmp("while", token->buf) == 0) {
       ret = parse_while(parser);
+      if (ret < 0) return -1;
+      token = parser_token(parser);
+      while (token->type == TT_EOL || token->type == TT_SEMI) {
+        token = parser_next(parser);
+      }
+    }
+    if (token->type == TT_NAME && strcmp("func", token->buf) == 0) {
+      ret = parse_func(parser);
       if (ret < 0) return -1;
       token = parser_token(parser);
       while (token->type == TT_EOL || token->type == TT_SEMI) {
@@ -427,7 +451,7 @@ int parse_while(struct t_parser *parser)
   do {
     if (parse_stmt(parser) < 0) {
       token_format(token);
-      fprintf(stderr, "Syntax Error: Line %d, Column %d: Unrecognized token in WHILE conditional: '%s'\n", (token->row+1), (token->col+1), token->buf);
+      fprintf(stderr, "Syntax Error: Line %d, Column %d: Unrecognized token in WHILE block: '%s'\n", (token->row+1), (token->col+1), token->buf);
       goto parse_while_end;
     }
     debug(3, "%s(). After parse_stmt(). addr=%d, token=%s\n", __FUNCTION__, parser->output.size, token_format(token));
@@ -463,10 +487,135 @@ int parse_while(struct t_parser *parser)
   return ret;
 }
 
+int parse_func(struct t_parser *parser)
+{
+  int addr_start, addr_end;
+  struct t_token *token;
+  struct t_icode *jmp;
+  int ret = -1;
+  struct t_func *func;
+  char *name;
+  int argc = 0;
+
+  addr_start = parser->output.size;
+  DBG(2, "Begin. addr_start=%d", addr_start);
+
+  /*
+   * Create JMP instruction.
+   */
+  jmp = create_icode_append(parser, I_JMP, create_num_from_int(0));
+  if (!jmp) {
+    goto parse_func_end;
+  }
+  DBG(3, "FUNC jmp: %s", format_icode(parser, jmp));
+
+  token = parser_next(parser);
+
+  /*
+   * Get function name
+   */
+  if (token->type != TT_NAME) {
+    fprintf(stderr, "Expected function name, got %s\n", token_types[token->type]);
+    goto parse_func_end;
+  }
+  name = token->buf;
+  token = parser_next(parser);
+
+  /*
+   * Parse arguments
+   */
+  argc = 0;
+  if (token->type != TT_PARENL) {
+    fprintf(stderr, "Expected '(' for function def arguments. Got: %s\n", token_types[token->type]);
+    goto parse_func_end;
+  }
+  token = parser_next(parser);
+  if (token->type == TT_PARENR) {
+    token = parser_next(parser);
+  }
+  else {
+    DBG(1, "token->type: %s, buf: %s", token_types[token->type], token->buf);
+    assert(0); // Not implemented
+    do {
+      if (parse_expr(parser) < -1) goto parse_func_end;
+      argc++;
+      token = parser_token(parser);
+      while (token && (token->type == TT_EOL || token->type == TT_SEMI || token->type == TT_ERROR)) {
+        token = parser_next(parser);
+      }
+
+      if (!token) {
+        goto parse_func_end;
+      }
+
+      if (token->type == TT_PARENR) {
+        token = parser_next(parser);
+        break;
+      }
+      else if (token->type == TT_COMMA) {
+        token = parser_next(parser);
+      }
+      else {
+        fprintf(stderr, "Unexpected token in function arguments: %s\n", token_types[token->type]);
+        goto parse_func_end;
+      }
+    } while (1);
+  }
+
+  DBG(3, "Arguments are parsed. argc=%d, addr=%d. Next token: %s\n", argc, parser->output.size, token_format(token));
+
+  do {
+    if (parse_stmt(parser) < 0) {
+      token_format(token);
+      fprintf(stderr, "Syntax Error: Line %d, Column %d: Unrecognized token in FUNC definition block: '%s'\n", (token->row+1), (token->col+1), token->buf);
+      goto parse_func_end;
+    }
+    debug(3, "%s(). After parse_stmt(). addr=%d, token=%s\n", __FUNCTION__, parser->output.size, token_format(token));
+    token = parser_token(parser);
+    if (token->type == TT_EOF) {
+      fprintf(stderr, "%s(): Unexpected end=of-file within FUNC definition.\n", __FUNCTION__);
+      goto parse_func_end;
+    }
+    else if (token->type == TT_NAME && strcmp("end", token->buf) == 0) {
+      addr_end = parser->output.size;
+      debug(3, "%s(): FUNC:END. next addr: %d\n", __FUNCTION__, parser->output.size);
+
+      jmp->operand->intval = parser->output.size - jmp->addr + 1;
+      debug(3, "%s(). Set jmp offset to %d\n", __FUNCTION__, jmp->operand->intval);
+
+      /*
+       * Jump back to caller
+       */
+      DBG(3, "Creating jmp to location indicated by stack");
+      jmp = create_icode_append(parser, I_JST, NULL);
+      if (!jmp) {
+        goto parse_func_end;
+      }
+      debug(3, "%s(). FUNC I_JST: %s\n", __FUNCTION__, format_icode(parser, jmp));
+
+      token = parser_next(parser);
+      debug(3, "%s(). next token: %s\n", __FUNCTION__, token_format(token));
+      ret = 0;
+      break;
+    }
+  } while (1);
+
+  func = func_new(name);
+  func->start = addr_start;
+  func->end = addr_end;
+  list_push(&parser->functions, func);
+
+  parse_func_end:
+
+  debug(3, "%s(). Returning with ret=%d\n", __FUNCTION__, ret);
+
+  return ret;
+}
+
 int parse_assign(struct t_parser *parser)
 {
   struct t_token *token;
-  
+
   token = parser_token(parser);
   if (token->type != TT_EQUAL) {
     return -1;
@@ -652,45 +801,76 @@ int parse_name(struct t_parser *parser)
 {
   struct t_token *token;
   char *name;
-  int i;
-  struct t_icode *icode;
+  int ret = 0;
+
+  DBG(2, "Begin.");
   
   token = parser_token(parser);
   name = token->buf;
   token = parser_next(parser);
-  if (token->type != TT_PARENL) {
-    if (!create_icode_append(parser, I_PUSH, create_var(name))) return -1;
+  if (token->type == TT_PARENL) {
+    ret = parse_fcall(parser, name);
   }
   else {
-    token = parser_next(parser);
-    if (token->type == TT_PARENR) {
-      i = 0;
-      token = parser_next(parser);
+    if (!create_icode_append(parser, I_PUSH, create_var(name))) {
+      ret = -1;
     }
-    else {
-      for (i=0; ;i++) {
-        if (parse_expr(parser) < 0) return -1;
-        token = parser_token(parser);
-        if (token->type == TT_COMMA) {
-          token = parser_next(parser);
-        }
-        else if (token->type == TT_PARENR) {
-          token = parser_next(parser);
-          break;
-        }
-        else {
-          fprintf(stderr, "Missing closing ')' in call to %s(). token: %s\n", name, token_format(token));
-          return -1;
-        }
+  }
+
+  DBG(3, "End. ret=%d", ret);
+
+  return ret;
+}
+
+int parse_fcall(struct t_parser *parser, char *name)
+{
+  int ret = 0;
+  struct t_token *token;
+  int i;
+  struct t_icode *icode;
+  int argc = 0;
+
+  DBG(2, "Begin parsing fcall: %s()", name);
+
+  token = parser_next(parser);
+  if (token->type == TT_PARENR) {
+    i = 0;
+    token = parser_next(parser);
+  }
+  else {
+    for (i=0; ;i++) {
+      if (parse_expr(parser) < 0) {
+        ret = -1;
+        goto parse_fcall_end;
+      }
+      argc++;
+      token = parser_token(parser);
+      if (token->type == TT_COMMA) {
+        token = parser_next(parser);
+      }
+      else if (token->type == TT_PARENR) {
+        token = parser_next(parser);
+        break;
+      }
+      else {
+        fprintf(stderr, "Missing closing ')' in call to %s(). token: %s\n", name, token_format(token));
+        ret = -1;
+        goto parse_fcall_end;
       }
     }
-    struct t_value *fcall;
-    fcall = create_fcall(name, i + 1);
-    icode = create_icode_append(parser, I_FCALL, fcall);
-    if (!icode) return -1;
+  }
+  struct t_value *fcall;
+  fcall = create_fcall(name, argc);
+  icode = create_icode_append(parser, I_FCALL, fcall);
+  if (!icode) {
+    ret = -1;
   }
   
-  return 0;
+  parse_fcall_end:
+
+  DBG(3, "End. ret=%d", ret);
+
+  return ret;
 }
 
 struct t_icode * icode_new(int type, struct t_value *operand)
@@ -718,24 +898,30 @@ void icode_close(struct t_icode *icode)
   }
 }
 
+void icode_free(struct t_icode *icode)
+{
+  icode_close(icode);
+  free(icode);
+}
+
 struct t_icode * create_icode_append(struct t_parser *parser, int type, struct t_value *operand)
 {
   struct t_icode *icode;
   struct t_token *token;
-  
+
   if (parser->max_output >= 0 && parser->output.size >= parser->max_output) {
     fprintf(stderr, "Maximum number of icodes (%d) reached: %d\n", parser->max_output, parser->output.size);
     return NULL;
   }
-  
+
   token = parser_token(parser);
-  
+
   icode = icode_new(type, operand);
   icode->addr = parser->output.size;
   icode->token = token;
   debug(1, "%s(): Appending icode addr=%d: %s\n", __FUNCTION__, icode->addr, format_icode(parser, icode));
   list_push(&parser->output, icode);
-  
+
   return icode;
 }
 
@@ -743,8 +929,8 @@ char * format_icode(struct t_parser *parser, struct t_icode *icode)
 {
   char buf[PARSER_SCRATCH_BUF + 1];
   int len;
-  struct t_icode *opnd1, *opnd2;
-  struct item *item;
+  //struct t_icode *opnd1, *opnd2;
+  //struct item *item;
   char *toobig = "<#icode {TOO_BIG}>";
   
   if (icode->operand) {
@@ -753,26 +939,30 @@ char * format_icode(struct t_parser *parser, struct t_icode *icode)
       format_value(icode->operand));
   }
   else {
-    item = parser->output.last;
-    while (item && item->value != icode) {
-      item = item->prev;
-    }
-    if (!item) {
-      len = snprintf(buf, PARSER_SCRATCH_BUF, "(%s)", icodes[icode->type]);
-    }
-    else {
-      assert(item->prev);
-      assert(item->prev->prev);
-      assert(item->prev->value);
-      assert(item->prev->prev->value);
-      opnd2 = (struct t_icode *) item->prev->value;
-      opnd1 = (struct t_icode *) item->prev->prev->value;
-      len = snprintf(buf, PARSER_SCRATCH_BUF, "(%s %s %s)",
-        icodes[icode->type],
-        (opnd1->operand ? format_value(opnd1->operand) : format_icode(parser, opnd1)),
-        (opnd2->operand ? format_value(opnd2->operand) : format_icode(parser, opnd2)));
-    }
+    len = snprintf(buf, PARSER_SCRATCH_BUF, "(%s)",
+      icodes[icode->type]);
   }
+  //else {
+  //  item = parser->output.last;
+  //  while (item && item->value != icode) {
+  //    item = item->prev;
+  //  }
+  //  if (!item) {
+  //    len = snprintf(buf, PARSER_SCRATCH_BUF, "(%s)", icodes[icode->type]);
+  //  }
+  //  else {
+  //    assert(item->prev);
+  //    assert(item->prev->prev);
+  //    assert(item->prev->value);
+  //    assert(item->prev->prev->value);
+  //    opnd2 = (struct t_icode *) item->prev->value;
+  //    opnd1 = (struct t_icode *) item->prev->prev->value;
+  //    len = snprintf(buf, PARSER_SCRATCH_BUF, "(%s %s %s)",
+  //      icodes[icode->type],
+  //      (opnd1->operand ? format_value(opnd1->operand) : format_icode(parser, opnd1)),
+  //      (opnd2->operand ? format_value(opnd2->operand) : format_icode(parser, opnd2)));
+  //  }
+  //}
   
   if (len > PARSER_SCRATCH_BUF) {
     icode->formatbuf = malloc(sizeof(char) * (strlen(toobig) + 1));
@@ -827,7 +1017,7 @@ char * format_value(struct t_value *value)
     show_literal = 1;
   }
   else if (value->type == VAL_FCALL) {
-    len = snprintf(valuebuf, PARSER_SCRATCH_BUF, "func:%s(argc=%d)", value->name, value->argc);
+    len = snprintf(valuebuf, PARSER_SCRATCH_BUF, "fcall:%s(argc=%d)", value->name, value->argc);
     if (len > PARSER_SCRATCH_BUF) {
       strcpy(valuebuf, toobigval);
     }
@@ -1003,6 +1193,10 @@ struct t_func * func_new(char *name)
   func->name = malloc(sizeof(char) * (strlen(name) + 1));
   strcpy(func->name, name);
   
+  func->invoke = NULL;
+  func->start = -1;
+  func->end = -1;
+
   return func;
 }
 

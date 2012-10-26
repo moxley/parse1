@@ -90,9 +90,11 @@ void scanner_close(struct t_scanner *scanner) {
   struct t_token *t;
   struct t_char *c;
   struct item *item;
-  
+
+  DBG(2, "Begin.");
+
   fclose(scanner->in);
-  
+
   item = scanner->c_list.first;
   while (item) {
     c = (struct t_char *) item->value;
@@ -113,6 +115,8 @@ void scanner_close(struct t_scanner *scanner) {
   list_empty(&scanner->c_pushback);
   list_empty(&scanner->t_list);
   list_empty(&scanner->t_pushback);
+
+  DBG(3, "End.");
 }
 
 /**

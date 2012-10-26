@@ -44,10 +44,11 @@
 #define I_NE        10
 #define I_JMP       11
 #define I_JZ        12
-#define I_LT        13
-#define I_GT        14
-#define I_LE        15
-#define I_GE        16
+#define I_JST       13
+#define I_LT        14
+#define I_GT        15
+#define I_LE        16
+#define I_GE        17
 
 extern char *parser_keywords[];
 extern char *icodes[];
@@ -68,6 +69,7 @@ struct t_parser {
   struct t_expr *stmt;
   //struct list list;
   struct list output;
+  struct list functions;
   int max_output;
   char formatbuf[PARSER_FORMAT_BUF_SIZE];
 };
@@ -102,8 +104,9 @@ struct t_func {
   /* Native function */
   int (*invoke)(struct t_func *func, struct list *args, struct t_value *ret);
 
-  /* Local function-- A linked list of statements */
-  struct item *first;  
+  /* Local function */
+  int start;
+  int end;
 };
 
 struct t_var {
@@ -143,6 +146,7 @@ int parse_block(struct t_parser *parser);
 int parse_stmt(struct t_parser *parser);
 int parse_if(struct t_parser *parser);
 int parse_while(struct t_parser *parser);
+int parse_func(struct t_parser *parser);
 int parse_assign(struct t_parser *parser);
 int compare_multiple_strings(const char *source, char **list);
 int parse_expr(struct t_parser *parser);
@@ -151,6 +155,7 @@ int parse_term(struct t_parser *parser);
 int parse_factor(struct t_parser *parser);
 int parse_num(struct t_parser *parser);
 int parse_name(struct t_parser *parser);
+int parse_fcall(struct t_parser *parser, char *name);
 
 /*
  * Values
@@ -160,6 +165,7 @@ void value_close(struct t_value *value);
 void value_free(struct t_value *value);
 struct t_icode * icode_new(int type, struct t_value *operand);
 void icode_close(struct t_icode *icode);
+void icode_free(struct t_icode *icode);
 struct t_icode * create_icode_append(struct t_parser *parser, int type, struct t_value *value);
 char * format_icode(struct t_parser *parser, struct t_icode *icode);
 struct t_value * create_value(int type);

@@ -9,8 +9,12 @@ funcA(2, 3, 4==4)
 while 1 == 1
   println("Foo")
 end
-"string1" + " string2"
+func myFunc()
+  println("Hello")
+end
+myFunc()
 '
 
-echo "Expression: $exp"
-echo "$exp" | ./bin/test_icode
+echo "PROGRAM:"
+echo "$exp"
+echo "$exp" | ./bin/test_icode 3

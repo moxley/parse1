@@ -76,6 +76,29 @@ int exec_close(struct t_exec *exec) {
 }
 
 /*
+ * Move functions from parser to exec
+ */
+void exec_get_funcs(struct t_exec *exec)
+{
+  struct item *item;
+
+  item = exec->parser.functions.first;
+  if (item) {
+    printf("Copying parser functions to exec functions\n");
+    item->prev = exec->functions.last; // May be NULL
+    if (exec->functions.last) {
+      exec->functions.last->next = item;
+    }
+    exec->functions.last = exec->parser.functions.last;
+    if (!exec->functions.first) {
+      exec->functions.first = item;
+    }
+    exec->parser.functions.first = NULL;
+    exec->parser.functions.last = NULL;
+  }
+}
+
+/*
  * Add a function.
  */
 //void exec_addfunc(struct t_exec *exec, struct t_func *func) {
@@ -102,6 +125,7 @@ struct t_func * exec_funcbyname(struct t_exec *exec, char *name) {
   struct item *item;
   struct t_func *func;
   
+  printf("exec_funcbyname() name=%s\n", name);
   item = exec->functions.first;
   while (item) {
     func = (struct t_func *) item->value;
@@ -165,7 +189,9 @@ int exec_run(struct t_exec *exec)
 {
   struct t_icode *icode;
   struct t_value *ret;
-  
+
+  exec_get_funcs(exec);
+
   if (!exec->current) {
     exec->current = exec->parser.output.first;
   }
@@ -189,16 +215,16 @@ struct t_value * exec_icode(struct t_exec *exec, struct t_icode *icode)
   struct t_value *val1, *val2;
   struct t_icode_op op;
   struct t_var *var;
-  
+
   debug(1, "%s(): Executing icode addr=%d: %s\n", __FUNCTION__, icode->addr, format_icode(&exec->parser, icode));
-  
+
   if (icode->type < 0 || icode->type >= operations_len) {
     fprintf(stderr, "Invalid operation type (value=%d)\n", icode->type);
     return NULL;
   }
-  
+
   op = operations[icode->type];
-  
+
   if (op.opnd_count == 0) {
     ret = op.op0(exec, icode);
   }
@@ -275,16 +301,20 @@ struct t_value * exec_i_fcall(struct t_exec *exec, struct t_icode *fcall)
   int i;
   struct t_value *ret = &nullvalue;
   struct t_func * func;
-  
+  struct t_value *opnd;
+  struct item *item;
+  int current_addr;
+  int offset;
+
   debug(3, "%s(): Stack size at line %d: %d\n", __FUNCTION__, __LINE__, exec->stack.size);
   debug(3, "%s(): Top of stack at line %d: %s\n", __FUNCTION__, __LINE__, format_value(list_last(&exec->stack)));
-  
+
   func = exec_funcbyname(exec, fcall->operand->name);
   if (!func) {
     fprintf(stderr, "Error: Function %s() is not defined, on Line %d.\n", fcall->operand->name, fcall->token->row+1);
     return NULL;
   }
-  
+
   /* Prepare the arguments */
   list_init(&a);
   list_init(&args);
@@ -294,8 +324,9 @@ struct t_value * exec_i_fcall(struct t_exec *exec, struct t_icode *fcall)
   for (i=0; i < fcall->operand->argc; i++) {
     list_push(&args, list_pop(&a));
   }
-  
+
   if (func->invoke) {
+    DBG(2, "Calling C function");
     ret = calloc(1, sizeof(struct t_value));
     list_push(&exec->values, ret);
     if (func->invoke(func, &args, ret) < 0) {
@@ -305,8 +336,25 @@ struct t_value * exec_i_fcall(struct t_exec *exec, struct t_icode *fcall)
     list_push(&exec->stack, ret);
   }
   else {
-    fprintf(stderr, "%s(): Unsupported function type for %s().\n", __FUNCTION__, func->name);
-    return NULL;
+    DBG(2, "Calling local function");
+
+    // Calculate the offset
+    offset = 0;
+    item = exec->parser.output.first;
+    printf("func start: %d\n", func->start);
+    current_addr = 0;
+    while (item != exec->current) {
+      item = item->next;
+      current_addr++;
+      if (item == exec->current) {
+        printf("Found current\n");
+      }
+    }
+    offset = (func->start + 1) - current_addr;
+
+    opnd = create_num_from_int(offset);
+    list_push(&exec->stack, opnd);
+    exec_i_jst(exec, NULL);
   }
   
   return ret;
@@ -314,9 +362,16 @@ struct t_value * exec_i_fcall(struct t_exec *exec, struct t_icode *fcall)
 
 struct t_value * exec_i_jmp(struct t_exec *exec, struct t_icode *jmp)
 {
-  int i;
-  int offset = jmp->operand->intval;
+  if (exec_jump(exec, jmp->operand->intval) < 0) {
+    return NULL;
+  }
 
+  return &nullvalue;
+}
+
+int exec_jump(struct t_exec *exec, int offset)
+{
+  int i;
   debug(3, "%s(): Doing jump. offset=%d\n", __FUNCTION__, offset);
   
   if (offset > 0) {
@@ -333,7 +388,7 @@ struct t_value * exec_i_jmp(struct t_exec *exec, struct t_icode *jmp)
     }
   }
   
-  return &nullvalue;
+  return 0;
 }
 
 struct t_value * exec_i_jz(struct t_exec *exec, struct t_icode *jmp)
@@ -345,6 +400,20 @@ struct t_value * exec_i_jz(struct t_exec *exec, struct t_icode *jmp)
     exec_i_jmp(exec, jmp);
   }
   
+  return ret;
+}
+
+/*
+ * Jump to location identified by the top of stack.
+ */
+struct t_value * exec_i_jst(struct t_exec *exec, struct t_icode *jmp)
+{
+  struct t_value *ret = &nullvalue;
+
+  ret = list_pop(&exec->stack);
+  assert(ret);
+  exec_jump(exec, ret->intval);
+
   return ret;
 }
 

@@ -14,5 +14,11 @@ d = "Hello" + ", world!"
 e = "She is " + 6 + " years old."
 '
 
+expr='func myFunc()
+  println("This is myFunc()")
+end
+myFunc()
+'
+
 echo "$expr"
-echo "$expr" | ./bin/test_exec 0
+echo "$expr" | ./bin/test_exec 3
