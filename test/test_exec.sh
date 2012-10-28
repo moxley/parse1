@@ -18,6 +18,7 @@ expr='func myFunc()
   println("This is myFunc()")
 end
 myFunc()
+println("This is the end")
 '
 
 echo "$expr"

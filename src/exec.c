@@ -19,6 +19,7 @@ const struct t_icode_op operations[] = {
   {2, NULL, NULL, &exec_i_ne},
   {0, &exec_i_jmp, NULL, NULL},
   {0, &exec_i_jz, NULL, NULL},
+  {1, &exec_i_jst, NULL, NULL},
   {2, NULL, NULL, &exec_i_lt},
   {2, NULL, NULL, &exec_i_gt},
   {2, NULL, NULL, &exec_i_le},
@@ -239,6 +240,7 @@ struct t_value * exec_icode(struct t_exec *exec, struct t_icode *icode)
     else {
       val1 = opnd1;
     }
+
     ret = op.op1(exec, icode, val1);
     list_push(&exec->stack, ret);
   }
@@ -256,7 +258,7 @@ struct t_value * exec_icode(struct t_exec *exec, struct t_icode *icode)
     else {
       val1 = opnd1;
     }
-    
+
     if (opnd2->type == VAL_VAR) {
       var = var_lookup(exec, opnd2->name);
       val2 = var->value;

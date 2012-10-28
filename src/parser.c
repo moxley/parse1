@@ -496,6 +496,7 @@ int parse_func(struct t_parser *parser)
   struct t_func *func;
   char *name;
   int argc = 0;
+  int offset;
 
   addr_start = parser->output.size;
   DBG(2, "Begin. addr_start=%d", addr_start);
@@ -580,18 +581,18 @@ int parse_func(struct t_parser *parser)
       addr_end = parser->output.size;
       debug(3, "%s(): FUNC:END. next addr: %d\n", __FUNCTION__, parser->output.size);
 
-      jmp->operand->intval = parser->output.size - jmp->addr + 1;
-      debug(3, "%s(). Set jmp offset to %d\n", __FUNCTION__, jmp->operand->intval);
+      offset = parser->output.size - jmp->addr - 1;
+      debug(3, "%s(). Set jmp offset to %d\n", __FUNCTION__, offset);
 
       /*
        * Jump back to caller
        */
       DBG(3, "Creating jmp to location indicated by stack");
-      jmp = create_icode_append(parser, I_JST, NULL);
+      jmp = create_icode_append(parser, I_JMP, create_num_from_int(offset));
       if (!jmp) {
         goto parse_func_end;
       }
-      debug(3, "%s(). FUNC I_JST: %s\n", __FUNCTION__, format_icode(parser, jmp));
+      debug(3, "%s(). FUNC I_JMP: %s\n", __FUNCTION__, format_icode(parser, jmp));
 
       token = parser_next(parser);
       debug(3, "%s(). next token: %s\n", __FUNCTION__, token_format(token));
